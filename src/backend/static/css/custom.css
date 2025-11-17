@@ -1,0 +1,5 @@
+/* Скрыть правый блок футера (Jazzmin version) */
+.main-footer .float-right {
+    display: none !important;
+}
+
