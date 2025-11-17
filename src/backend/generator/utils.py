@@ -1,6 +1,14 @@
 import random
+from decimal import Decimal
 
-from crm.models import Brand, Product, ProductPriceLevel
+from crm.models import (
+    Brand,
+    Document,
+    DocumentItem,
+    Product,
+    ProductPriceLevel,
+    Warehouse,
+)
 
 
 def generate_random_name():
@@ -44,7 +52,6 @@ def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
 
             name = generate_random_name()
 
-            # Создаем продукт с временной sale_price = 0 (переустановим позже)
             product = Product.objects.create(
                 name=name,
                 sku=name.upper()[:10] + str(random.randint(100, 999)),
@@ -52,12 +59,10 @@ def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
                 sale_price=0
             )
 
-            # 1) Генерируем price levels (по твоей логике)
             min_purchase_price = generate_price_levels(product, max_price_levels)
 
-            # 2) Устанавливаем реалистичную цену продажи
             sale_price = round(random.uniform(
-                min_purchase_price * 1.05,      # всегда выше минимальной закупочной
+                min_purchase_price * 1.05,
                 min_purchase_price * 1.3
             ), 2)
 
@@ -72,16 +77,13 @@ def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
 
 def generate_price_levels(product, max_levels):
     """
-    Реалистичная генерация уровней закупочной цены.
-    Основано на старом генераторе пользователя.
+    Generates random price levels for a product.
+    Returns the minimum purchase price.
     """
-    # Главный уровень – минимальная партия 1
     moq = {1: round(random.uniform(5, 100), 2)}
 
-    # сколько дополнительных уровней сделать
     extra_levels = random.randint(1, max_levels - 1)
 
-    # создаём случайные MOQ кроме 1
     additional_quantities = sorted(
         random.sample(range(2, 100), k=extra_levels)
     )
@@ -90,10 +92,8 @@ def generate_price_levels(product, max_levels):
     min_purchase_price = last_price
 
     for idx, q in enumerate(additional_quantities):
-        # каждая следующая цена ниже
         new_price = round(last_price - random.uniform(0.5, 1.5), 2)
 
-        # страховка, чтобы цена не стала отрицательной
         if new_price < 1:
             new_price = round(last_price - 0.1, 2)
 
@@ -101,7 +101,6 @@ def generate_price_levels(product, max_levels):
         last_price = new_price
         min_purchase_price = new_price
 
-    # Теперь генерируем price levels в БД
     for q, price in sorted(moq.items()):
         ProductPriceLevel.objects.create(
             product=product,
@@ -111,3 +110,48 @@ def generate_price_levels(product, max_levels):
 
     return min_purchase_price
 
+
+def generate_initial_stock(warehouse_name, total_days: int, func_to_show=None):
+    """
+    Creates a purchase document to initialize stock levels for all products.
+    Each product will receive a quantity based on a random average daily sales (ADS)
+    """
+
+    try:
+        warehouse = Warehouse.objects.get(name=warehouse_name)
+    except Warehouse.DoesNotExist:
+        raise ValueError(f"Warehouse '{warehouse_name}' does not exist.")
+
+    if func_to_show:
+        func_to_show(f"Using warehouse: {warehouse.name}")
+
+    doc = Document.objects.create(
+        doc_type=Document.DocType.PURCHASE,
+        status=Document.Status.DRAFT,
+        dst_warehouse=warehouse,
+        note="Початкове завантаження складу",
+    )
+
+    len_products = Product.objects.count()
+    for idx, product in enumerate(Product.objects.all(), start=1):
+        if func_to_show:
+            func_to_show(f"Processing product {idx}/{len_products}.", end="\r")
+        
+        ads = random.uniform(0.01, 10.0)
+
+        qty_raw = ads * total_days * random.uniform(0.9, 1.2)
+        qty = int(max(1, round(qty_raw)))
+
+        DocumentItem.objects.create(
+            document=doc,
+            product=product,
+            quantity=Decimal(qty),
+            price=Decimal("0")
+        )
+
+    if func_to_show:
+        func_to_show("")
+    
+    doc.post()
+
+    return doc
