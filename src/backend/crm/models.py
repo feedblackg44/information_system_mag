@@ -1,4 +1,5 @@
 from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -85,6 +86,48 @@ class Document(models.Model):
 
     def __str__(self):
         return f"{self.doc_type} #{self.id}"  # type: ignore
+    
+    def recalc_prices(self):
+        items = list(self.items.select_related("product", "product__brand"))  # type: ignore
+
+        brand_groups = {}
+        for item in items:
+            brand = item.product.brand_id
+            brand_groups.setdefault(brand, []).append(item)
+
+        for brand_id, brand_items in brand_groups.items():
+            total_qty = sum(item.quantity for item in brand_items)
+
+            levels_by_product = {}
+
+            for item in brand_items:
+                product = item.product
+
+                if product.id not in levels_by_product:
+                    price_level = (
+                        ProductPriceLevel.objects
+                        .filter(
+                            product=product,
+                            minimal_quantity__lte=total_qty
+                        )
+                        .order_by("-minimal_quantity")
+                        .first()
+                    )
+
+                    if not price_level:
+                        price_level = (
+                            ProductPriceLevel.objects
+                            .filter(product=product)
+                            .order_by("-minimal_quantity")
+                            .first()
+                        )
+
+                    levels_by_product[product.id] = price_level
+
+                level = levels_by_product[product.id]
+                item.price = level.price * item.quantity
+
+        DocumentItem.objects.bulk_update(items, ["price"])
     
     def clean(self):
         # PURCHASE: only dst
@@ -176,6 +219,8 @@ class Document(models.Model):
                 inv_dst.quantity += qty
                 inv_dst.save()
 
+        self.recalc_prices()
+
         self.status = self.Status.POSTED
         self.save()
 
@@ -255,57 +300,27 @@ class DocumentItem(models.Model):
     def __str__(self):
         return f"{self.product} x {self.quantity}"
 
-    def save(self, *args, recalc_prices=True, **kwargs):
+    def save(self, *args, **kwargs):
         doc = self.document
-        brand = self.product.brand
 
         if doc.doc_type == Document.DocType.SALE:
             self.price = Decimal(self.product.sale_price) * self.quantity
-
         elif doc.doc_type == Document.DocType.WRITE_OFF:
             self.price = Decimal(self.product.sale_price) * self.quantity
-
         elif doc.doc_type == Document.DocType.TRANSFER:
             self.price = Decimal(0)
-
         elif doc.doc_type == Document.DocType.PURCHASE:
-            total_brand_qty = Decimal(0)
-
-            for item in doc.items.all():  # type: ignore
-                if item.product.brand == brand and item.pk != self.pk:
-                    total_brand_qty += item.quantity
-
-            total_brand_qty += self.quantity
-            
-            price_level = (
+            first_level = (
                 ProductPriceLevel.objects
-                .filter(
-                    product=self.product,
-                    minimal_quantity__lte=total_brand_qty
-                )
-                .order_by('-minimal_quantity')
+                .filter(product=self.product)
+                .order_by("minimal_quantity")
                 .first()
             )
-
-            if not price_level:
-                price_level = max(
-                    ProductPriceLevel.objects.filter(product=self.product),
-                    key=lambda pl: pl.minimal_quantity,
-                    default=None
-                )
-
-            if not price_level:
-                raise ValidationError(f"Для товару '{self.product.name}' не задано рівні цін.")
-
-            self.price = Decimal(price_level.price) * self.quantity
+            if first_level:
+                self.price = Decimal(first_level.price) * self.quantity
+            else:
+                self.price = Decimal(0)
         else:
             self.price = Decimal(0)
 
         super().save(*args, **kwargs)
-        
-        if not recalc_prices:
-            return
-        
-        for item in doc.items.all():  # type: ignore
-            if item.pk != self.pk:
-                item.save(recalc_prices=False)

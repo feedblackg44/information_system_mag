@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
+from django.forms.models import BaseModelFormSet, ModelForm
+from django.http.request import HttpRequest
 
 from .models import (
     Brand,
@@ -67,6 +69,7 @@ class DocumentItemInline(admin.TabularInline):
     readonly_fields = ("price",)
     fields = ("product", "quantity", "price")
 
+
 @admin.action(description="Провести документ")
 def post_document(modeladmin, request, queryset):
     for doc in queryset:
@@ -87,6 +90,10 @@ class DocumentAdmin(admin.ModelAdmin):
     search_fields = ("id",)
     inlines = [DocumentItemInline]
     actions = [post_document, unpost_document]
+
+    def save_related(self, request: HttpRequest, form: ModelForm, formsets: BaseModelFormSet, change: bool) -> None:
+        super().save_related(request, form, formsets, change)
+        form.instance.recalc_prices()
 
     def get_readonly_fields(self, request, obj=None):
         """
