@@ -136,8 +136,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 JAZZMIN_SETTINGS = {
     "site_title": "Складська система",
     "site_header": "Управління запасами",
-    "site_brand": "Inventory Manager",  # <- ЗАМЕНЯЕТ ЛОГО И НАЗВАНИЕ
+    "site_brand": "Inventory Manager",
     "welcome_sign": "Ласкаво просимо!",
-    "copyright": "Ілля Плостак",
+    "copyright": "FeedBlack",
     "custom_css": "css/custom.css"
 }

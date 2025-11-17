@@ -1,14 +1,17 @@
 from django.contrib import admin
+from django.contrib.admin.models import LogEntry
+
 from .models import (
     Brand,
+    Document,
+    DocumentItem,
+    Inventory,
     Product,
     ProductPriceLevel,
     Warehouse,
-    Inventory,
-    Document,
-    DocumentItem,
 )
 
+admin.site.register(LogEntry)
 
 # -----------------------------
 # BRAND
