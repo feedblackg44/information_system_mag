@@ -169,11 +169,12 @@ def generate_sales_distribution(
     total_sales,
     start_weekday,
     # Chaos parameters
-    trend_volatility=0.15,   # How strongly the trend can drift
-    season_jitter=0.1,       # How much the seasonality "jitters" from week to week
-    spike_prob=0.05,         # Probability of a sales spike (promo/shortage) on a given day
-    spike_magnitude=0.6,     # Strength of the spike (0.6 = +/- 60%)
-    base_weekly_profile=None # Base weekly profile
+    trend_volatility=0.15,    # How strongly the trend can drift
+    season_jitter=0.1,        # How much the seasonality "jitters" from week to week
+    spike_prob=0.05,          # Probability of a sales spike (promo/shortage) on a given day
+    spike_magnitude=0.6,      # Strength of the spike (0.6 = +/- 60%)
+    base_weekly_profile=None, # Base weekly profile
+    payday_factors=None
 ):
     if total_sales <= 0:
         return [0] * total_days
@@ -230,6 +231,11 @@ def generate_sales_distribution(
 
     # 5. Assembly
     raw_curve = walk * seasonality * spikes * noise
+    
+    if payday_factors is not None:
+        # If arrays have different lengths, trim or do not apply (error protection)
+        if len(payday_factors) == len(raw_curve):
+            raw_curve = raw_curve * payday_factors
     
     # 6. Normalization to Total Sales (preserving curve shape)
     current_sum = raw_curve.sum()
@@ -294,6 +300,31 @@ def get_random_product_profile():
     return final_profile
 
 
+def get_payday_factors(days_list):
+    factors = []
+    for current_date in days_list:
+        day = current_date.day
+        factor = 1.0
+        
+        # 1. Payday (beginning of the month): peak on days 1-5
+        if 1 <= day <= 5:
+            # Gradually decreases: +15% on the 1st, +3% on the 5th
+            boost = 0.15 * ((6 - day) / 5)
+            factor += boost
+            
+        # 2. Advance (middle of the month): peak on days 15-17
+        elif 15 <= day <= 17:
+            factor += 0.08 # Fixed boost of 8%
+            
+        # 3. "End of money" (end of the month): slight decline after the 25th
+        elif day > 25:
+            factor -= 0.05
+            
+        factors.append(factor)
+        
+    return np.array(factors)
+
+
 def simulate_sales(
     total_days: int,
     min_remain=0.0,
@@ -319,6 +350,8 @@ def simulate_sales(
 
     start_date = now().replace(hour=8, minute=0, second=0, microsecond=0) - relativedelta(days=total_days)
     days_list = [start_date + relativedelta(days=i) for i in range(total_days)]
+
+    payday_mults = get_payday_factors(days_list)
 
     plan = {}
 
@@ -356,7 +389,8 @@ def simulate_sales(
             
             # You can also randomize the "nervousness" of the trend for different products
             trend_volatility=random.uniform(0.05, 0.2), # Some products have smooth trends, others fluctuate
-            spike_prob=random.uniform(0.01, 0.05)       # Some have frequent promotions, others rarely
+            spike_prob=random.uniform(0.01, 0.05),      # Some have frequent promotions, others rarely
+            payday_factors=payday_mults                 # Apply payday effects
         )
 
         plan[inv.product.id] = {  # type: ignore
