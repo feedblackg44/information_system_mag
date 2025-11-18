@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class Brand(models.Model):
@@ -68,7 +69,7 @@ class Document(models.Model):
 
     doc_type = models.CharField(max_length=16, choices=DocType.choices)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
-    doc_date = models.DateTimeField(auto_now_add=True)
+    doc_date = models.DateTimeField(default=timezone.now)
 
     src_warehouse = models.ForeignKey(
         Warehouse, on_delete=models.CASCADE,

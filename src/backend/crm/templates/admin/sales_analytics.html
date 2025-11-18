@@ -1,0 +1,84 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="card p-3">
+
+    <h2>Аналітика продажів</h2>
+
+    <form method="get" class="mb-4">
+
+        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+
+            <div>
+                <label>Товар</label><br>
+                <select name="product" class="form-control">
+                    <option value="">Всі</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
+                            {{ p.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Склад</label><br>
+                <select name="warehouse" class="form-control">
+                    <option value="">Всі</option>
+                    {% for w in warehouses %}
+                        <option value="{{ w.id }}" {% if selected_warehouse == w.id|stringformat:"s" %}selected{% endif %}>
+                            {{ w.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Дата від</label><br>
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
+            </div>
+
+            <div>
+                <label>Дата до</label><br>
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
+            </div>
+
+        </div>
+
+        <button class="btn btn-primary mt-3">Застосувати</button>
+
+    </form>
+
+    <canvas id="salesChart"></canvas>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('salesChart');
+const isSingleProduct = {{ selected_product|yesno:"true,false" }};
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ labels|safe }},
+        datasets: [{
+            label: 'Продажі',
+            data: {{ values|safe }},
+            borderWidth: 2,
+            fill: false,
+            tension: 0.25
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: isSingleProduct
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}

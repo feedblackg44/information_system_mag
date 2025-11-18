@@ -50,7 +50,7 @@ class WarehouseAdmin(admin.ModelAdmin):
 
 
 # -----------------------------
-# INVENTORY (только просмотр)
+# INVENTORY
 # -----------------------------
 @admin.register(Inventory)
 class InventoryAdmin(admin.ModelAdmin):

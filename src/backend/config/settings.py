@@ -139,5 +139,15 @@ JAZZMIN_SETTINGS = {
     "site_brand": "Inventory Manager",
     "welcome_sign": "Ласкаво просимо!",
     "copyright": "FeedBlack",
-    "custom_css": "css/custom.css"
+    "custom_css": "css/custom.css",
+    
+    "custom_links": {
+        "crm": [
+            {
+                "name": "Аналітика продажів",
+                "url": "sales_analytics",
+                "icon": "fas fa-chart-line",
+            }
+        ],
+    }
 }
