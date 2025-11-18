@@ -3,3 +3,6 @@
     display: none !important;
 }
 
+#search_group span {
+    margin-left: 5px;
+}

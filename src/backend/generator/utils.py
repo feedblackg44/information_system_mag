@@ -1,7 +1,7 @@
 import random
-from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 
+import numpy as np
 from crm.models import (
     Brand,
     Document,
@@ -11,6 +11,7 @@ from crm.models import (
     ProductPriceLevel,
     Warehouse,
 )
+from dateutil.relativedelta import relativedelta
 from django.utils.timezone import now
 
 
@@ -163,6 +164,136 @@ def generate_initial_stock(warehouse_name, total_days: int,
     return doc
 
 
+def generate_sales_distribution(
+    total_days,
+    total_sales,
+    start_weekday,
+    # Chaos parameters
+    trend_volatility=0.15,   # How strongly the trend can drift
+    season_jitter=0.1,       # How much the seasonality "jitters" from week to week
+    spike_prob=0.05,         # Probability of a sales spike (promo/shortage) on a given day
+    spike_magnitude=0.6,     # Strength of the spike (0.6 = +/- 60%)
+    base_weekly_profile=None # Base weekly profile
+):
+    if total_sales <= 0:
+        return [0] * total_days
+
+    # 1. Generate "jittery" trend (Random Walk without strong smoothing)
+    # Use a smaller window or none at all for more realism
+    steps = np.random.normal(0, trend_volatility, total_days)
+    walk = np.cumsum(steps)
+    
+    # Normalize the trend to be a multiplier around 1.0
+    # But do it softly to preserve local trends
+    if walk.max() != walk.min():
+        walk = (walk - walk.min()) / (walk.max() - walk.min()) # 0..1
+        walk = 0.8 + (walk * 0.4) # Trend fluctuates from 0.8 to 1.2
+    else:
+        walk = np.ones(total_days)
+
+    # 2. "Live" seasonality
+    # If no profile is provided, take the standard one but add noise for this specific product
+    if base_weekly_profile is None:
+        # Example: slight randomization of the base so products are not synchronized
+        base = np.array([1.0, 1.05, 1.1, 1.15, 1.2, 0.85, 0.8])
+        perturbation = np.random.normal(0, 0.1, 7)
+        base_weekly_profile = np.maximum(base + perturbation, 0.1)
+    
+    # Generate seasonality array day by day
+    seasonality = []
+    current_weekday = start_weekday
+    for _ in range(total_days):
+        # Take the base factor for the day
+        base_factor = base_weekly_profile[current_weekday]
+        # Add "jitter" (today's Friday is not the same as last Friday)
+        daily_jitter = np.random.normal(0, season_jitter)
+        factor = max(0.1, base_factor + daily_jitter)
+        seasonality.append(factor)
+        current_weekday = (current_weekday + 1) % 7
+    
+    seasonality = np.array(seasonality)
+
+    # 3. Event-driven spikes (Spikes)
+    # Create an event mask: 1.0 is normal, 1.5 is promo, 0.5 is shortage
+    spikes = np.ones(total_days)
+    # Generate random numbers where < spike_prob an event occurs
+    events_mask = np.random.rand(total_days) < spike_prob
+    
+    # For each event decide: up or down (usually up more often if these are sales)
+    for i in np.where(events_mask)[0]:
+        direction = 1 if random.random() > 0.3 else -1  # 70% chance of increase, 30% decrease
+        magnitude = 1.0 + (direction * random.uniform(0.2, spike_magnitude))
+        spikes[i] = max(0.1, magnitude)
+
+    # 4. Noise (daily small variability)
+    noise = np.random.lognormal(mean=0.0, sigma=0.2, size=total_days)
+
+    # 5. Assembly
+    raw_curve = walk * seasonality * spikes * noise
+    
+    # 6. Normalization to Total Sales (preserving curve shape)
+    current_sum = raw_curve.sum()
+    if current_sum == 0:
+        return [0] * total_days
+        
+    scale_factor = total_sales / current_sum
+    final_float = raw_curve * scale_factor
+    
+    sales = np.floor(final_float).astype(int)
+
+    # Remainder distribution (rounding)
+    diff = int(total_sales - sales.sum())
+    if diff > 0:
+        # Add remainders proportionally to weights (where there are already many sales)
+        # This is more realistic than random
+        indices = np.random.choice(total_days, size=diff, p=raw_curve/raw_curve.sum())
+        for idx in indices:
+            sales[idx] += 1
+    elif diff < 0:
+        # If we overshoot (rare but possible with floor and float manipulations)
+        for _ in range(abs(diff)):
+             # Remove where there are more than 0
+             nonzero_indices = np.nonzero(sales)[0]
+             if len(nonzero_indices) > 0:
+                 idx = random.choice(nonzero_indices)
+                 sales[idx] -= 1
+
+    return list(sales)
+
+
+def get_random_product_profile():
+    # Type 1: "Weekend Heavy" (Alcohol, snacks, entertainment)
+    # Peak on FRI, SAT. Drop on MON-WED.
+    weekend_heavy = np.array([0.7, 0.7, 0.8, 0.9, 1.3, 1.4, 1.2])
+
+    # Type 2: "Office / Weekdays" (Business lunches, paper, B2B)
+    # Peak on TUE-THU. Drop on weekends.
+    weekday_heavy = np.array([1.1, 1.2, 1.2, 1.1, 1.0, 0.7, 0.7])
+
+    # Type 3: "Staples" (Bread, milk, toilet paper)
+    # Almost flat, slight rise towards weekend.
+    staples = np.array([0.95, 0.95, 1.0, 1.0, 1.05, 1.1, 1.0])
+
+    # Type 4: "Random Purchases" (Impulse items)
+    # Weak day-of-week dependence.
+    random_profile = np.random.normal(1.0, 0.1, 7) 
+    random_profile = np.maximum(random_profile, 0.8) # Don't let it go to zero
+
+    choices = [weekend_heavy, weekday_heavy, staples, random_profile]
+    weights = [0.30, 0.20, 0.40, 0.10]  # 40% staples, 30% weekend heavy, etc.
+    
+    # Choose one profile
+    selected_idx = np.random.choice(len(choices), p=weights)
+    base = choices[selected_idx]
+    
+    # IMPORTANT: Add individuality to each product,
+    # so even "weekend heavy" products are not clones of each other.
+    unique_twist = np.random.normal(0, 0.05, 7)
+    final_profile = np.maximum(base + unique_twist, 0.1)
+    
+    return final_profile
+
+
 def simulate_sales(
     total_days: int,
     min_remain=0.0,
@@ -170,14 +301,6 @@ def simulate_sales(
     warehouse_name="Main Warehouse",
     func_to_show=None
 ):
-    """
-    Realistic & imperfect sales simulation:
-    - Some items go to zero
-    - Some keep 1–5%
-    - Some keep 5–10%
-    - Some keep even more
-    """
-
     try:
         warehouse = Warehouse.objects.get(name=warehouse_name)
     except Warehouse.DoesNotExist:
@@ -202,7 +325,11 @@ def simulate_sales(
     if func_to_show:
         func_to_show("Creating individual sellout strategies...")
 
+    # -------------------------
+    # PLAN PHASE: target remainder for each product
+    # -------------------------
     for idx, inv in enumerate(inventories, start=1):
+
         if func_to_show:
             func_to_show(f"Planning {idx}/{inventories.count()}", end="\r")
 
@@ -210,62 +337,50 @@ def simulate_sales(
         if initial_qty <= 0:
             continue
 
-        # assign different behavior to each product
-        roll = random.random()
-        if roll < 0.2:
-            target_pct = random.uniform(0.0, 0.02)       # 20% → sold almost to zero
-        elif roll < 0.6:
-            target_pct = random.uniform(0.02, 0.07)      # 40% → low remainder
-        elif roll < 0.9:
-            target_pct = random.uniform(0.07, 0.12)      # 30% → medium remainder
-        else:
-            target_pct = random.uniform(0.12, 0.25)      # 10% → high remainder
+        # main difference: use user-provided min_remain/max_remain
+        target_pct = random.uniform(min_remain, max_remain)
+        target_qty = int(float(initial_qty) * target_pct)
 
-        target_pct = Decimal(target_pct)
-        target_qty = int(initial_qty * target_pct)
-        to_sell = max(0, initial_qty - target_qty)
-
-        if to_sell <= 0:
+        total_sales = initial_qty - target_qty
+        if total_sales <= 0:
             continue
+        
+        product_weekly_profile = get_random_product_profile()
+
+        daily_sales = generate_sales_distribution(
+            total_days, 
+            float(total_sales), 
+            start_date.weekday(),
+            # Pass this profile to your updated generation function
+            base_weekly_profile=product_weekly_profile,
+            
+            # You can also randomize the "nervousness" of the trend for different products
+            trend_volatility=random.uniform(0.05, 0.2), # Some products have smooth trends, others fluctuate
+            spike_prob=random.uniform(0.01, 0.05)       # Some have frequent promotions, others rarely
+        )
 
         plan[inv.product.id] = {  # type: ignore
             "inv": inv,
-            "initial": initial_qty,
-            "target": target_qty,
-            "remaining": to_sell
+            "daily_sales": daily_sales
         }
 
     if func_to_show:
-        func_to_show("")
+        func_to_show("\nSimulating daily sales...")
 
-    if func_to_show:
-        func_to_show("Simulating daily sales...")
-
+    # -------------------------
+    # EXECUTION PHASE
+    # -------------------------
     for day_index, current_day in enumerate(days_list, start=1):
+
         doc_items = []
+
         if func_to_show:
             func_to_show(f"Day {day_index}/{total_days} {current_day.date()}", end="\r")
 
-        remaining_days = total_days - day_index + 1
-
         for pid, data in plan.items():
-            remaining = data["remaining"]
-            if remaining <= 0:
-                continue
-
-            # adaptive daily mean
-            daily_mean = float(remaining / remaining_days)
-
-            # realistic variations
-            sale = int(abs(random.gauss(daily_mean, daily_mean * 0.25)))
-            if sale > remaining:
-                sale = remaining
-
-            if sale <= 0:
-                continue
-
-            doc_items.append((data["inv"].product, sale))
-            data["remaining"] -= sale
+            qty = data["daily_sales"][day_index - 1]
+            if qty > 0:
+                doc_items.append((data["inv"].product, qty))
 
         if not doc_items:
             continue
@@ -279,10 +394,11 @@ def simulate_sales(
         )
 
         for product, qty in doc_items:
+            
             DocumentItem.objects.create(
                 document=doc,
                 product=product,
-                quantity=Decimal(qty)
+                quantity=Decimal(int(qty))
             )
 
         doc.post()
