@@ -1,14 +1,17 @@
 import random
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 
 from crm.models import (
     Brand,
     Document,
     DocumentItem,
+    Inventory,
     Product,
     ProductPriceLevel,
     Warehouse,
 )
+from django.utils.timezone import now
 
 
 def generate_random_name():
@@ -111,7 +114,9 @@ def generate_price_levels(product, max_levels):
     return min_purchase_price
 
 
-def generate_initial_stock(warehouse_name, total_days: int, func_to_show=None):
+def generate_initial_stock(warehouse_name, total_days: int, 
+                           target_date=None,
+                           func_to_show=None):
     """
     Creates a purchase document to initialize stock levels for all products.
     Each product will receive a quantity based on a random average daily sales (ADS)
@@ -129,6 +134,7 @@ def generate_initial_stock(warehouse_name, total_days: int, func_to_show=None):
         doc_type=Document.DocType.PURCHASE,
         status=Document.Status.DRAFT,
         dst_warehouse=warehouse,
+        doc_date=target_date if target_date else now(),
         note="Початкове завантаження складу",
     )
 
@@ -155,3 +161,131 @@ def generate_initial_stock(warehouse_name, total_days: int, func_to_show=None):
     doc.post()
 
     return doc
+
+
+def simulate_sales(
+    total_days: int,
+    min_remain=0.0,
+    max_remain=0.1,
+    warehouse_name="Main Warehouse",
+    func_to_show=None
+):
+    """
+    Realistic & imperfect sales simulation:
+    - Some items go to zero
+    - Some keep 1–5%
+    - Some keep 5–10%
+    - Some keep even more
+    """
+
+    try:
+        warehouse = Warehouse.objects.get(name=warehouse_name)
+    except Warehouse.DoesNotExist:
+        raise ValueError(f"Warehouse '{warehouse_name}' not found.")
+
+    if func_to_show:
+        func_to_show(f"Using warehouse: {warehouse.name}")
+
+    inventories = Inventory.objects.filter(warehouse=warehouse).select_related("product")
+
+    if not inventories:
+        raise ValueError("No inventory found to simulate sales.")
+
+    if func_to_show:
+        func_to_show(f"Found {inventories.count()} inventory items.")
+
+    start_date = now().replace(hour=8, minute=0, second=0, microsecond=0) - relativedelta(days=total_days)
+    days_list = [start_date + relativedelta(days=i) for i in range(total_days)]
+
+    plan = {}
+
+    if func_to_show:
+        func_to_show("Creating individual sellout strategies...")
+
+    for idx, inv in enumerate(inventories, start=1):
+        if func_to_show:
+            func_to_show(f"Planning {idx}/{inventories.count()}", end="\r")
+
+        initial_qty = inv.quantity
+        if initial_qty <= 0:
+            continue
+
+        # assign different behavior to each product
+        roll = random.random()
+        if roll < 0.2:
+            target_pct = random.uniform(0.0, 0.02)       # 20% → sold almost to zero
+        elif roll < 0.6:
+            target_pct = random.uniform(0.02, 0.07)      # 40% → low remainder
+        elif roll < 0.9:
+            target_pct = random.uniform(0.07, 0.12)      # 30% → medium remainder
+        else:
+            target_pct = random.uniform(0.12, 0.25)      # 10% → high remainder
+
+        target_pct = Decimal(target_pct)
+        target_qty = int(initial_qty * target_pct)
+        to_sell = max(0, initial_qty - target_qty)
+
+        if to_sell <= 0:
+            continue
+
+        plan[inv.product.id] = {  # type: ignore
+            "inv": inv,
+            "initial": initial_qty,
+            "target": target_qty,
+            "remaining": to_sell
+        }
+
+    if func_to_show:
+        func_to_show("")
+
+    if func_to_show:
+        func_to_show("Simulating daily sales...")
+
+    for day_index, current_day in enumerate(days_list, start=1):
+        doc_items = []
+        if func_to_show:
+            func_to_show(f"Day {day_index}/{total_days} {current_day.date()}", end="\r")
+
+        remaining_days = total_days - day_index + 1
+
+        for pid, data in plan.items():
+            remaining = data["remaining"]
+            if remaining <= 0:
+                continue
+
+            # adaptive daily mean
+            daily_mean = float(remaining / remaining_days)
+
+            # realistic variations
+            sale = int(abs(random.gauss(daily_mean, daily_mean * 0.25)))
+            if sale > remaining:
+                sale = remaining
+
+            if sale <= 0:
+                continue
+
+            doc_items.append((data["inv"].product, sale))
+            data["remaining"] -= sale
+
+        if not doc_items:
+            continue
+
+        doc = Document.objects.create(
+            doc_type=Document.DocType.SALE,
+            status=Document.Status.DRAFT,
+            src_warehouse=warehouse,
+            doc_date=current_day,
+            note=f"Simulated sales for {current_day.date()}",
+        )
+
+        for product, qty in doc_items:
+            DocumentItem.objects.create(
+                document=doc,
+                product=product,
+                quantity=Decimal(qty)
+            )
+
+        doc.post()
+
+    if func_to_show:
+        func_to_show("")
