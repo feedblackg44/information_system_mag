@@ -1,0 +1,9 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_list %}
+
+{% block object-tools %}
+    <a href="/replenishment/forecastdata/run-forecast/" class="btn btn-success"> 
+        {% translate '📊 Запустити розрахунок ADS' %}
+    </a>
+    {{ block.super }}
+{% endblock %}

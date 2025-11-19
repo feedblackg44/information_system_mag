@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     
     'crm',
     'generator',
+    'replenishment'
 ]
 
 MIDDLEWARE = [
@@ -137,9 +138,12 @@ JAZZMIN_SETTINGS = {
     "site_title": "Складська система",
     "site_header": "Управління запасами",
     "site_brand": "Inventory Manager",
-    "welcome_sign": "Ласкаво просимо!",
+    "site_logo": "/icon.svg",
+    "login_logo": None,
+    "welcome_sign": "Ласкаво просимо до системи управління запасами!",
     "copyright": "FeedBlack",
     "custom_css": "css/custom.css",
+    "user_avatar": None,
     
     "custom_links": {
         "crm": [
@@ -148,6 +152,6 @@ JAZZMIN_SETTINGS = {
                 "url": "sales_analytics",
                 "icon": "fas fa-chart-line",
             }
-        ],
+        ]
     }
 }

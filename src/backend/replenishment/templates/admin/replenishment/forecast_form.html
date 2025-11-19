@@ -1,0 +1,58 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block content %}
+<div id="content-main">
+
+    <a href="{% url 'admin:replenishment_forecastdata_changelist' %}" class="btn btn-outline-secondary mb-3">
+        {% translate 'Повернутись' %}
+    </a>
+
+    <div style="background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; color: #dc3545;">⚠️ УВАГА: Ризик тайм-ауту сервера</h3>
+        <p>
+            Ця операція запускається **синхронно**. Розрахунок прогнозу для великої кількості товарів (більше 50-100) може зайняти час, що перевищує ліміт очікування веб-сервера.
+        </p>
+        <p style="margin-bottom: 0;">
+            ✅ **Рекомендовано:** Після тестування перенести функцію `run_prophet_forecast_service` у фонову чергу (Celery/RQ).
+        </p>
+    </div>
+
+    <form action="." method="post" id="forecast_form" novalidate>
+        {% csrf_token %}
+        
+        <div class="card module">
+            <div class="card-header">
+                <h2 style="margin-bottom: 0;">Налаштування діапазону історії</h2>
+                {% if subtitle %}<p class="subtitle mb-0">{{ subtitle }}</p>{% endif %}
+            </div>
+            <div class="card-body">
+                <fieldset class="module aligned">
+                    {% for field in form %}
+                        <div class="form-row p-0 m-0 {% if not forloop.last %}mb-3{% endif %}">
+                            {{ field.errors }}
+                            
+                            <div class="fieldBox">
+                                <label for="{{ field.id_for_label }}" class="required mr-2">
+                                    {{ field.label }}:
+                                </label>
+                                {{ field }}
+                                {% if field.help_text %}<p class="help mb-0">{{ field.help_text|safe }}</p>{% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </fieldset>
+            </div>
+        </div>
+
+        <div class="submit-row">
+            <button type="submit" class="btn btn-primary mr-2" name="_save">
+                {% translate 'Запустити прогноз та оновити ADS' %} 🚀
+            </button>
+        </div>
+        
+        {% if is_popup %}<input type="hidden" name="_popup" value="1">{% endif %}
+    </form>
+    
+</div>
+{% endblock %}
