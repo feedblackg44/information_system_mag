@@ -119,6 +119,8 @@ class ReplenishmentItem(models.Model):
         unique_together = ("report", "product", "warehouse")
         verbose_name = "Рядок поповнення"
         verbose_name_plural = "Рядки поповнення"
+        
+        ordering = ['product__brand__name', 'product__sku']
 
     def __str__(self):
         return f"{self.product_sku} ({self.product_name}) у Звіті №{self.report.id}"  # type: ignore

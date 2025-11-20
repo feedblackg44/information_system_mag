@@ -1,0 +1,48 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block content %}
+<div id="content-main">
+    
+    <a href="{% url 'admin:replenishment_replenishmentreport_changelist' %}" class="btn btn-outline-secondary mb-3">
+        {% translate 'Повернутись' %}
+    </a>
+
+    <form action="." method="post" novalidate>
+        {% csrf_token %}
+        
+        <div class="card module">
+            <div class="card-header">
+                <h2>{% translate 'Параметри розрахунку' %}</h2>
+                {% if subtitle %}<p class="subtitle mb-0">{{ subtitle }}</p>{% endif %}
+            </div>
+            <div class="card-body" style="padding: 20px;">
+                <fieldset class="module aligned">
+                    {% for field in form %}
+                        <div class="form-row p-0 m-0 {% if not forloop.last %}mb-3{% endif %}">
+                            {{ field.errors }}
+                            
+                            <div class="fieldBox">
+                                <label for="{{ field.id_for_label }}" class="required mr-2">
+                                    {{ field.label }}:
+                                </label>
+                                {{ field }}
+                                {% if field.help_text %}<p class="help mb-0">{{ field.help_text|safe }}</p>{% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </fieldset>
+            </div>
+        </div>
+
+        <div class="submit-row">
+            {# Кнопка запуску #}
+            <button type="submit" class="btn btn-primary" name="_save">
+                {% translate 'Розрахувати потребу' %} 
+            </button>
+        </div>
+        
+    </form>
+    
+</div>
+{% endblock %}

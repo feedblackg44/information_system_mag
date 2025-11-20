@@ -5,3 +5,17 @@
 #search_group span {
     margin-left: 5px;
 }
+
+td.field-pricing_matrix p {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: none !important;
+}
+
+td.field-best_quantity input {
+    width: 80px !important;
+}
+
+table thead tr th {
+    white-space: wrap !important
+}

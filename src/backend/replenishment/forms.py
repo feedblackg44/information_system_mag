@@ -1,6 +1,7 @@
 from django import forms
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
+from crm.models import Warehouse
 
 
 class ForecastDateRangeForm(forms.Form):
@@ -33,3 +34,21 @@ class ForecastDateRangeForm(forms.Form):
             raise forms.ValidationError("Початкова дата має бути раніше кінцевої.")
         
         return cleaned_data
+
+
+class GenerateReplenishmentForm(forms.Form):
+    warehouse = forms.ModelChoiceField(
+        queryset=Warehouse.objects.all(),
+        label="Склад поповнення",
+        empty_label=None
+    )
+    global_coverage_days = forms.IntegerField(
+        label="Цільове покриття (днів)",
+        initial=14,
+        min_value=1
+    )
+    global_credit_terms = forms.IntegerField(
+        label="Кредитні умови (днів)",
+        initial=45,
+        min_value=0
+    )
