@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_rq',
     
     'crm',
     'generator',
@@ -59,7 +60,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'config' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -83,7 +84,7 @@ DATABASES = {
         "NAME": "warehouse",
         "USER": "warehouse",
         "PASSWORD": "warehouse",
-        "HOST": "localhost",
+        "HOST": "db",
         "PORT": "5432",
     }
 }
@@ -153,5 +154,21 @@ JAZZMIN_SETTINGS = {
                 "icon": "fas fa-chart-line",
             }
         ]
+    }
+}
+
+REDIS_HOST = 'redis'
+REDIS_PORT = 6379
+
+# --- КОНФИГУРАЦИЯ DJANGO-RQ ---
+RQ_QUEUES = {
+    'default': {
+        # Имя 'default' используется, так как оно указано в @django_rq.job('default', ...)
+        'HOST': REDIS_HOST,
+        'PORT': REDIS_PORT,
+        'DB': 0, 
+        'PASSWORD': None,
+        # Максимальное время выполнения задачи (в секундах). 3600с = 1 час
+        'DEFAULT_TIMEOUT': 3600, 
     }
 }

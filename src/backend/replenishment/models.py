@@ -5,6 +5,18 @@ from django.conf import settings
 from django.db import models
 
 
+class TaskNotification(models.Model):
+    """Таблица для передачи сообщений от воркеров пользователям."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    message = models.TextField()
+    message_type = models.CharField(max_length=20, default='success') # success, error, warning
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification for {self.user}: {self.message[:20]}"
+
+
 class ForecastData(models.Model):
     """
     Stores the result of the Prophet forecast (ADS).
@@ -57,6 +69,15 @@ class ReplenishmentReport(models.Model):
     )
     global_credit_terms = models.PositiveIntegerField(
         "Кредитні умови (днів)", default=45
+    )
+    
+    min_budget = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal(0))
+    max_budget = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal(0))
+    max_investment_period = models.PositiveIntegerField(default=0)
+    
+    deals_variants_json = models.BinaryField(
+        "Дані алгоритму (Pickle)", 
+        null=True, blank=True
     )
 
     def __str__(self):

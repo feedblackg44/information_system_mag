@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django import forms
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
@@ -51,4 +52,21 @@ class GenerateReplenishmentForm(forms.Form):
         label="Кредитні умови (днів)",
         initial=45,
         min_value=0
+    )
+
+class AlgorithmInputForm(forms.Form):
+    """Форма для збору фінальних параметрів перед запуском алгоритму."""
+    
+    max_investment_period = forms.IntegerField(
+        label="Макс. період інвестицій (днів)",
+        min_value=1,
+        help_text="Максимальна кількість днів, на яку дозволено заморожувати кошти у закупівлі."
+    )
+    
+class FinalBudgetForm(forms.Form):
+    # Це буде просто поле для введення, діапазон перевіримо в Admin View
+    final_budget = forms.DecimalField(
+        label="Фінальний бюджет закупівлі (у.о.)",
+        min_value=Decimal('0.01'),
+        help_text="Введіть суму, яку ви готові витратити."
     )

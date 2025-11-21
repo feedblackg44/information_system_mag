@@ -7,10 +7,16 @@ requires-python = ">=3.13"
 dependencies = [
     "django>=5.2.7",
     "django-jazzmin>=3.0.1",
+    "django-rq>=3.1",
+    "gunicorn>=23.0.0",
     "matplotlib>=3.10.7",
     "numpy>=2.3.5",
+    "openpyxl>=3.1.5",
+    "ortools>=9.14.6206",
     "pandas>=2.3.3",
     "prophet>=1.2.1",
     "psycopg2-binary>=2.9.11",
     "python-dateutil>=2.9.0.post0",
+    "redis>=7.1.0",
+    "xlsxwriter>=3.2.9",
 ]

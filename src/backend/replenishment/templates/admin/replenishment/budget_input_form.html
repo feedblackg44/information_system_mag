@@ -1,0 +1,62 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block content %}
+<div id="content-main">
+    
+    {# Кнопка повернення до попереднього етапу #}
+    <a href="{% url 'admin:replenishment_report_process' report.id %}" class="btn btn-outline-secondary mb-3">
+        {% translate '← Повернутись до перевірки даних' %}
+    </a>
+
+    {# БЛОК ВІДОБРАЖЕННЯ РОЗРАХОВАНИХ МЕЖ БЮДЖЕТУ (Залишаємо стиль success box) #}
+    <div style="background: #e9f7e8; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        <p style="margin-bottom: 5px; font-size: 1.1em; font-weight: bold;">
+            {% translate 'Розрахований діапазон закупівлі:' %}
+        </p>
+        <h3>
+            💰 {{ min_budget }} у.о. — {{ max_budget }} у.о.
+        </h3>
+        <p style="margin-bottom: 0; color: #5a5a5a;">
+            {% translate 'Введіть точну суму, яку ви готові інвестувати, для запуску фінальної оптимізації.' %}
+        </p>
+    </div>
+
+    {# ФОРМА ВВЕДЕННЯ БЮДЖЕТУ (У стилі Card) #}
+    <form action="." method="post" novalidate>
+        {% csrf_token %}
+        
+        <div class="card module">
+            <div class="card-header">
+                <h2 style="margin-bottom: 0;">{% translate 'Фіналізація бюджету' %}</h2>
+            </div>
+            
+            <div class="card-body">
+                <fieldset class="module aligned">
+                    {% for field in form %}
+                        {# Використовуємо modern Bootstrap/Jazzmin spacing #}
+                        <div class="form-row p-0 m-0 {% if not forloop.last %}mb-3{% endif %}">
+                            {{ field.errors }}
+                            
+                            <div class="fieldBox">
+                                <label for="{{ field.id_for_label }}" class="required mr-2">
+                                    {{ field.label }}:
+                                </label>
+                                {{ field }}
+                                {% if field.help_text %}<p class="help mb-0">{{ field.help_text }}</p>{% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </fieldset>
+            </div>
+        </div>
+
+        <div class="submit-row">
+            <button type="submit" class="btn btn-primary mr-2">
+                {% translate 'Запустити оптимізацію за бюджетом' %} 🚀
+            </button>
+        </div>
+        
+    </form>
+</div>
+{% endblock %}

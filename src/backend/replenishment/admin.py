@@ -4,14 +4,22 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.contrib import admin
-from django.db.models import F, Sum, DecimalField
+from django.db.models import DecimalField, F, Sum
 from django.db.models.functions import Coalesce
-from django.urls import path
+from django.urls import path, reverse
 from django.utils.html import format_html
 
-from .admin_views.run_forecast import run_forecast_view
-from .models import ForecastData, ReplenishmentItem, ReplenishmentReport
+from .admin_views.budget_input import budget_input_view
+from .admin_views.create_order import create_order_view
 from .admin_views.generate_report import generate_view
+from .admin_views.process_report import export_report_excel_view, process_report_view
+from .admin_views.run_forecast import run_forecast_view
+from .models import (
+    ForecastData,
+    ReplenishmentItem,
+    ReplenishmentReport
+)
+from .services import recalculate_report_pricing
 
 
 @admin.register(ForecastData)
@@ -22,10 +30,13 @@ class ForecastDataAdmin(admin.ModelAdmin):
     
     change_list_template = "admin/replenishment/replenishment_changelist.html"
 
+    def has_add_permission(self, request):
+        return False
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('run-forecast/', self.admin_site.admin_view(run_forecast_view), name='replenishment_run_forecast'),
+            path('run-forecast/', self.admin_site.admin_view(run_forecast_view), name='replenishment_run_forecast')
         ]
         return custom_urls + urls
 
@@ -255,16 +266,23 @@ class ReplenishmentItemInline(admin.TabularInline):
     system_params.short_description = "Умови"
 
 
-# --- 2. REPORT ADMIN ---
 @admin.register(ReplenishmentReport)
 class ReplenishmentReportAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created_at', 'user', 'warehouse', 'status', 'total_budget_display', 'view_items_link')
+    list_display = ('id', 'created_at', 'user', 'warehouse', 'status', 
+                    'total_budget_display', 'total_profit_display', 'view_items_link')
     list_filter = ('status', 'warehouse', 'created_at')
-    readonly_fields = ('total_budget_calculation', 'created_at')
+    readonly_fields = ('user', 'warehouse', 'status', 'total_budget_calculation', 'total_profit_calculation', 
+                       'created_at', 'run_algorithm_button', 'create_order_button')
+    
+    exclude = (
+        'min_budget',
+        'max_budget',
+        'max_investment_period',
+        'deals_variants_json',
+    )
     
     change_list_template = "admin/replenishment/report_changelist.html"
     
-    # Підключаємо Inline таблицю
     inlines = [ReplenishmentItemInline]
 
     def total_budget_calculation(self, obj):
@@ -273,7 +291,6 @@ class ReplenishmentReportAdmin(admin.ModelAdmin):
         total_budget = obj.items.aggregate(
             sum_budget=Sum(
                 Coalesce(F('best_quantity'), 0) * Coalesce(F('purchase_price'), 0),
-                # [ФІКС] Явно вказуємо, що результат має бути DecimalField
                 output_field=DecimalField() 
             )
         )['sum_budget']
@@ -290,14 +307,97 @@ class ReplenishmentReportAdmin(admin.ModelAdmin):
         return self.total_budget_calculation(obj)
     total_budget_display.short_description = "Бюджет"
     
+    def total_profit_calculation(self, obj):
+        """Розраховує загальний прибуток для всього звіту."""
+        
+        total_profit = obj.items.aggregate(
+            sum_profit=Sum(
+                (Coalesce(F('sale_price'), 0) - Coalesce(F('purchase_price'), 0)) * Coalesce(F('best_quantity'), 0),
+                output_field=DecimalField()
+            )
+        )['sum_profit']
+        
+        if total_profit is None:
+            return format_html("<b style='color: #E67E22;'>Не розраховано</b>")
+        
+        style = "color: green; font-weight: bold;" if total_profit > 0 else "color: red; font-weight: bold;" if total_profit < 0 else "color: #999;"
+        
+        return format_html(
+            "<b style='{}'>{}</b>",
+            style,
+            f"{total_profit:,.2f} у.о."
+        )
+    
+    def total_profit_display(self, obj):
+        """Відображає прибуток у списку звітів."""
+        return self.total_profit_calculation(obj)
+    total_profit_display.short_description = "Прибуток"
+    
     def view_items_link(self, obj):
         count = obj.items.count()
         return f"{count} позицій"
     view_items_link.short_description = "Товари"
     
+    def run_algorithm_button(self, obj):
+        url = reverse('admin:replenishment_report_process', args=[obj.pk])
+        
+        if obj.status == ReplenishmentReport.Status.ORDER_CREATED:
+            return format_html(
+                '<span style="color: #999;">💰 Оптимізація недоступна, оскільки документ замовлення вже створено</span>'
+            )
+        
+        return format_html(
+            '<a class="btn btn-primary" href="{}">{}</a>',
+            url,
+            '💰 Запустити алгоритм'
+        )
+        
+    run_algorithm_button.short_description = "Оптимізація замовлення"
+    
+    def create_order_button(self, obj):
+        """Відображає кнопку для створення документа замовлення на основі звіту."""
+        create_order_url = reverse('admin:replenishment_create_order', args=[obj.pk])
+        
+        if obj.status == ReplenishmentReport.Status.ORDER_CREATED:
+            return format_html(
+                '<span style="color: green; font-weight: bold;">🛒 Документ замовлення створено</span>'
+            )
+        
+        return format_html(
+            '<a class="btn btn-success" href="{}">{}</a>',
+            create_order_url,
+            '🛒 Створити документ замовлення'
+        )
+    create_order_button.short_description = "Створення замовлення"
+    
+    def has_change_permission(self, request, obj=None):
+        """
+        Забороняє редагування, якщо звіт знаходиться у статусі ORDER_CREATED.
+        """
+        # 1. Якщо ми переглядаємо конкретний об'єкт (obj is not None)
+        if obj and obj.status == obj.Status.ORDER_CREATED:
+            return False
+            
+        # 2. Для всіх інших об'єктів або списку об'єктів, використовуємо стандартні дозволи
+        return super().has_change_permission(request, obj)
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def save_formset(self, request, form, formset, change):
+        super().save_formset(request, form, formset, change)
+        
+        if formset.model == ReplenishmentItem:
+            # ВИКЛИК 1: Після ручного збереження (Admin Inline)
+            recalculate_report_pricing(form.instance)
+    
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
+            path('<int:object_id>/process/', self.admin_site.admin_view(process_report_view), name='replenishment_report_process'),
+            path('<int:object_id>/excel/', self.admin_site.admin_view(export_report_excel_view), name='replenishment_report_excel'),
+            path('<int:object_id>/budget-input/', self.admin_site.admin_view(budget_input_view), name='replenishment_report_budget_input'),
+            path('<int:object_id>/create-order/', self.admin_site.admin_view(create_order_view), name='replenishment_create_order'),
             path('generate/', self.admin_site.admin_view(generate_view), name='replenishment_generate'),
         ]
         return custom_urls + urls

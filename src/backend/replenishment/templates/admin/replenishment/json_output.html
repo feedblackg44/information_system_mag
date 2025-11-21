@@ -1,0 +1,67 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n admin_urls static %}
+
+{% block content %}
+<div id="content-main">
+    <form action="{% url 'admin:replenishment_report_process' report.id %}" method="post" id="algorithm_run_form">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <a href="{% url 'admin:replenishment_replenishmentreport_change' report.id %}" class="btn btn-outline-secondary mr-2">
+                {% translate '← Повернутись до звіту' %}
+            </a>
+            <a href="{% url 'admin:replenishment_report_excel' report.id %}" class="btn btn-success mr-2">
+                {% translate '⬇️ Завантажити як Excel' %}
+            </a>
+            <button type="submit" class="btn btn-primary">
+                {% translate 'Перейти до виконання алгоритму' %}
+            </button>
+        </div>
+        
+        <div class="module">
+            <h2>{{ title }}</h2>
+            
+            <div class="submit-row" style="padding: 15px; padding-left: 0; border-top: 1px solid #eee;">
+                {# Вставляємо поле форми тут #}
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                    <label for="{{ algorithm_form.max_investment_period.id_for_label }}" class="required m-0">
+                        {{ algorithm_form.max_investment_period.label }}:
+                    </label>
+                    {{ algorithm_form.max_investment_period }}
+                    {{ algorithm_form.max_investment_period.errors }}
+                </div>
+            </div>
+
+            <p>
+                <b>Дані, підготовлені для алгоритму ({{ data_list|length }} рядків):</b>
+            </p>
+            
+            {% if data_list %}
+                <div style="overflow-x: auto; margin-bottom: 20px;"> 
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                {% for header in header_keys %} 
+                                    <th style="white-space: nowrap;">{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        
+                        <tbody>
+                            {% for item in data_list %}
+                            <tr>
+                                {% for value in item.values %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: red;">Дані для передачі відсутні.</p>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}
