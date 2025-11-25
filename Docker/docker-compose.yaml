@@ -49,4 +49,4 @@ services:
 
 volumes:
   pgdata:
-  redisdata: # Новий том для збереження даних Redis
+  redisdata:
