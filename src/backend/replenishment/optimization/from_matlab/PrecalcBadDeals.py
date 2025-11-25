@@ -11,10 +11,8 @@ def PrecalcBadDeals(order, min_moqs):
         items_v = list(deal.values())
         l_items = {}
 
-        # 1️⃣ Собираем только товары с IncludedDispersion = True
         for j, item in enumerate(items_v):
             if item.get('IncludedDispersion'):
                 l_items[j] = item
 
-        # 2️⃣ Применяем алгоритм GetDealToMOQ для минимального MOQ
         GetDealToMOQ(deal, cur_moq)

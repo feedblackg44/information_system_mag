@@ -8,7 +8,6 @@ from crm.models import Warehouse
 class ForecastDateRangeForm(forms.Form):
     """Форма для вибору діапазону даних для прогнозу."""
     
-    # За замовчуванням беремо дані за останні 90 днів
     default_start = (timezone.now() - relativedelta(days=90)).date()
     default_end = timezone.now().date()
 
@@ -64,7 +63,6 @@ class AlgorithmInputForm(forms.Form):
     )
     
 class FinalBudgetForm(forms.Form):
-    # Це буде просто поле для введення, діапазон перевіримо в Admin View
     final_budget = forms.DecimalField(
         label="Фінальний бюджет закупівлі (у.о.)",
         min_value=Decimal('0.01'),

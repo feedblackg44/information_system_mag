@@ -4,12 +4,10 @@
 {% block content %}
 <div id="content-main">
     
-    {# Кнопка повернення до попереднього етапу #}
     <a href="{% url 'admin:replenishment_report_process' report.id %}" class="btn btn-outline-secondary mb-3">
         {% translate '← Повернутись до перевірки даних' %}
     </a>
 
-    {# БЛОК ВІДОБРАЖЕННЯ РОЗРАХОВАНИХ МЕЖ БЮДЖЕТУ (Залишаємо стиль success box) #}
     <div style="background: #e9f7e8; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
         <p style="margin-bottom: 5px; font-size: 1.1em; font-weight: bold;">
             {% translate 'Розрахований діапазон закупівлі:' %}
@@ -22,7 +20,6 @@
         </p>
     </div>
 
-    {# ФОРМА ВВЕДЕННЯ БЮДЖЕТУ (У стилі Card) #}
     <form action="." method="post" novalidate>
         {% csrf_token %}
         
@@ -34,7 +31,6 @@
             <div class="card-body">
                 <fieldset class="module aligned">
                     {% for field in form %}
-                        {# Використовуємо modern Bootstrap/Jazzmin spacing #}
                         <div class="form-row p-0 m-0 {% if not forloop.last %}mb-3{% endif %}">
                             {{ field.errors }}
                             

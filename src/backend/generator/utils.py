@@ -384,10 +384,7 @@ def simulate_sales(
             total_days, 
             float(total_sales), 
             start_date.weekday(),
-            # Pass this profile to your updated generation function
             base_weekly_profile=product_weekly_profile,
-            
-            # You can also randomize the "nervousness" of the trend for different products
             trend_volatility=random.uniform(0.05, 0.2), # Some products have smooth trends, others fluctuate
             spike_prob=random.uniform(0.01, 0.05),      # Some have frequent promotions, others rarely
             payday_factors=payday_mults                 # Apply payday effects

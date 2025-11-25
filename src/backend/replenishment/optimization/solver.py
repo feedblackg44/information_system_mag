@@ -7,9 +7,8 @@ def optimize_efficiency(deals_variants_all, max_budget) -> dict | None:
     list_of_deals = list(deals_variants_all.values())
     
     M = len(list_of_deals)
-    SCALE = 1000  # если efficiency и budget — float, чтобы сделать целыми
+    SCALE = 1000
 
-    # Создаём переменные выбора для каждой группы и варианта
     y = []
     for g, group in enumerate(list_of_deals):
         row = []
@@ -17,11 +16,9 @@ def optimize_efficiency(deals_variants_all, max_budget) -> dict | None:
             row.append(model.NewBoolVar(f"y_{g}_{v}"))
         y.append(row)
 
-    # Ограничение: из каждой группы выбрать ровно один вариант
     for g in range(M):
         model.Add(sum(y[g][v] for v in range(len(list_of_deals[g]))) == 1)
 
-    # Ограничение по бюджету
     total_budget = sum(
         int(round(group[v]["budget"] * SCALE)) * y[g][v]
         for g, group in enumerate(list_of_deals)
@@ -29,7 +26,6 @@ def optimize_efficiency(deals_variants_all, max_budget) -> dict | None:
     )
     model.Add(total_budget <= int(round(max_budget * SCALE)))
 
-    # Целевая функция: максимизировать эффективность
     total_eff = sum(
         int(round(group[v]["efficiency"] * SCALE)) * y[g][v]
         for g, group in enumerate(list_of_deals)

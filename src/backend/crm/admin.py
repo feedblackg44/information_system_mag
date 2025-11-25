@@ -96,9 +96,6 @@ class DocumentAdmin(admin.ModelAdmin):
         form.instance.recalc_prices()
 
     def get_readonly_fields(self, request, obj=None):
-        """
-        Если документ уже проведён — всё становится readonly.
-        """
         if obj and obj.status == Document.Status.POSTED:
             return tuple(self.readonly_fields) + (
                 "doc_type",
@@ -109,9 +106,6 @@ class DocumentAdmin(admin.ModelAdmin):
         return self.readonly_fields
 
     def has_delete_permission(self, request, obj=None):
-        """
-        Нельзя удалять проведённые документы.
-        """
         if obj and obj.status == Document.Status.POSTED:
             return False
         return super().has_delete_permission(request, obj)

@@ -19,7 +19,6 @@ def _get_data_for_algorithm(report):
     та зберігаючи оригінальні назви ключів (Deal ID, Minimum Purchase UoM Quantity, тощо).
     """
     
-    # Оптимізація: отримуємо основні рядки звіту та попередньо завантажуємо РІВНІ ЦІН
     items = report.items.all().select_related('product', 'warehouse').prefetch_related(
         'product__productpricelevel_set' 
     )
@@ -68,21 +67,15 @@ def process_report_view(request, object_id):
     initial_data = {'max_investment_period': initial_period}
 
     if request.method == 'POST':
-        # Ми тут обробляємо форму AlgorithmInputForm (з періодом інвестицій)
         form = AlgorithmInputForm(request.POST) 
         
         if form.is_valid():
             max_period = form.cleaned_data['max_investment_period']
             
-            # --- ВИКЛИК СКЛАДНОГО РОЗРАХУНКУ МЕЖ БЮДЖЕТУ ---
-            
-            # 1. Готуємо дані (якщо потрібно)
             data_list = _get_data_for_algorithm(report)
             
-            # 2. Викликаємо сервіс (або ставимо в чергу)
             min_b, max_b, deals_json = execute_initial_optimization_pass(data_list, max_period)
             
-            # Зберігаємо всі результати у модель
             report.min_budget = min_b
             report.max_budget = max_b
             report.max_investment_period = max_period
@@ -91,12 +84,10 @@ def process_report_view(request, object_id):
             
             messages.info(request, "Розрахунок бюджетних меж завершено. Виберіть фінальний бюджет.")
             
-            # Redirect до нового View для введення бюджету
             return redirect(reverse('admin:replenishment_report_budget_input', args=[report.pk]))
     else:
         form = AlgorithmInputForm(initial=initial_data)
-        
-    # 3. Налаштування контексту для відображення таблиці
+    
     context = admin.site.each_context(request)
     context.update({
         'title': f"Перевірка вхідних даних для алгоритму Звіту №{report.id}",  # type: ignore
@@ -113,13 +104,11 @@ def process_report_view(request, object_id):
 def export_report_excel_view(request, object_id):
     report = get_object_or_404(ReplenishmentReport, pk=object_id)
     
-    # 1. Отримання даних
     data_list = _get_data_for_algorithm(report)
     
     if not data_list:
         messages.error(request, "Немає даних для експорту.")
         return redirect(reverse('admin:replenishment_replenishmentreport_change', args=[report.pk]))
-    # 2. Генерація Excel у пам'яті (BytesIO)
     df = pd.DataFrame(data_list)
     output = BytesIO()
     
@@ -130,13 +119,11 @@ def export_report_excel_view(request, object_id):
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
-    # Використовуємо xlsxwriter як швидший двигун
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Replenishment Data', index=False)
     writer.close()
     output.seek(0)
     
-    # 3. Формування відповіді HTTP
     filename = f'replenishment_report_{report.pk}_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx'
     response = HttpResponse(
         output.read(), 

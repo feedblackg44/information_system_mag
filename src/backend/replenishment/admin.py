@@ -48,7 +48,6 @@ class ReplenishmentItemInline(admin.TabularInline):
     
     _variance_cache = {}
     
-    # Визначаємо порядок колонок, щоб це виглядало як повний звіт
     fields = (
         'product_info',
         'inventory_info',
@@ -72,10 +71,8 @@ class ReplenishmentItemInline(admin.TabularInline):
     def calculate_and_cache_stats(self, report_id):
         """Обчислює середнє значення та дисперсію Dfs для кожного бренду в звіті."""
         
-        # 1. Вибірка всіх елементів для звіту
         items = ReplenishmentItem.objects.filter(report_id=report_id).select_related('product__brand')
 
-        # 2. Групування за брендом та обчислення Dfs
         brand_dfs_map = defaultdict(list)
         
         for item in items:
@@ -87,13 +84,10 @@ class ReplenishmentItemInline(admin.TabularInline):
                 dfs = (inventory + Decimal(best_qty)) / ads
                 brand_dfs_map[item.product.brand.id].append(float(dfs))  # type: ignore
         
-        # 3. Обчислення фінальної статистики
         variance_results = {}
         for brand_id, dfs_list in brand_dfs_map.items():
             if len(dfs_list) >= 2:
-                # Дисперсія
                 variance = statistics.variance(dfs_list)
-                # Стандартне відхилення
                 stdev = math.sqrt(variance) 
                 
                 variance_results[brand_id] = {
@@ -101,12 +95,8 @@ class ReplenishmentItemInline(admin.TabularInline):
                     'stdev': stdev,
                     'count': len(dfs_list),
                 }
-            # Для брендів з одним товаром, stdev = 0, але для коректності виводимо N/A
-            
-        # 4. Кешування результатів
         ReplenishmentItemInline._variance_cache = variance_results
 
-    # Оптимізація: підтягуємо рівні цін, щоб не робити SQL в циклі рендерингу
     def get_queryset(self, request):
         ReplenishmentItemInline._variance_cache = {}
         
@@ -138,12 +128,9 @@ class ReplenishmentItemInline(admin.TabularInline):
         s_price = obj.sale_price or Decimal(0)
         p_price = obj.purchase_price or Decimal(0)
 
-        # Обгортка div з margin:0 допомагає ізолювати таблицю
-        # line-height: 1 скидає міжрядковий інтервал, який може розтягувати комірку
         html = "<div style='margin: 0; padding: 0; line-height: 1;'>"
         html += "<table style='width:100%; font-size: 11px; border-collapse: collapse; text-align: right; margin: 0; padding: 0;'>"
         
-        # Заголовок
         html += "<tr style='border-bottom: 1px solid #ddd; background: #f9f9f9;'>"
         html += "<th style='text-align: left; padding: 2px 5px;'>Qty</th>"
         html += "<th style='padding: 2px 5px;'>Buy</th>"
@@ -180,27 +167,13 @@ class ReplenishmentItemInline(admin.TabularInline):
         
         if ads > 0:
             days = (inventory + Decimal(best_qty)) / ads
-            # Оновлюємо кеш, якщо він ще не заповнений
             if not self._variance_cache:
                 self.calculate_and_cache_stats(obj.report_id)
-
-            # Перевіряємо, чи цей товар сильно відхиляється від середнього по бренду
-            # brand_id = obj.product.brand.id
-            # stats = self._variance_cache.get(brand_id)
-            
-            style = ""
-            # if stats:
-            #      # Якщо Dfs товару відрізняється від середнього бренду більш ніж на 1 σ
-            #      if abs(float(days) - stats['avg']) > stats['stdev']:
-            #         style = "style='color: #E67E22; font-weight: bold;'" # Помаранчевий (попередження)
-
-            return format_html(f"<span {style}>{days:.1f} днів</span>")
+            return format_html(f"<span>{days:.1f} днів</span>")
         return "N/A"
     
     def days_for_sale_variance(self, obj):
         """Відображає стандартне відхилення (σ) запасів по бренду."""
-        
-        # Якщо кеш порожній, заповнюємо його (це станеться, якщо days_for_sale не було викликано першим)
         if not self._variance_cache:
             self.calculate_and_cache_stats(obj.report_id)
 
@@ -214,7 +187,6 @@ class ReplenishmentItemInline(admin.TabularInline):
     days_for_sale_variance.short_description = "Відхилення (σ)"
     
     def budget(self, obj):
-        # Додаємо захист "or 0", якщо best_quantity раптом None
         qty = obj.best_quantity or 0
         price = obj.purchase_price or Decimal(0)
         return f"{(qty * price):.2f}"
@@ -229,19 +201,15 @@ class ReplenishmentItemInline(admin.TabularInline):
     total_sales.short_description = "Продажі"
 
     def total_profit(self, obj):
-        # 1. Безпечне отримання значень
         sell = obj.sale_price if obj.sale_price is not None else Decimal(0)
         buy = obj.purchase_price if obj.purchase_price is not None else Decimal(0)
         qty = obj.best_quantity or 0
-        
-        # 2. Розрахунок
+
         profit_per_unit = sell - buy
         total = Decimal(qty) * profit_per_unit
         
-        # 3. [КРИТИЧНОЕ ВИПРАВЛЕННЯ] Форматуємо число до рядка ДО format_html
         total_profit_str = f"{total:.2f}" 
-        
-        # 4. Стилізація
+
         if total > 0:
             style = "color: green; font-weight: bold;"
         elif total < 0:
@@ -249,11 +217,10 @@ class ReplenishmentItemInline(admin.TabularInline):
         else:
             style = "color: #999;"
 
-        # 5. Виведення (використовуємо {} замість {:.2f})
         return format_html(
             "<span style='{}'>{}</span>",
             style,
-            total_profit_str # Передаємо вже відформатований рядок
+            total_profit_str
         )
 
     total_profit.short_description = "Прибуток"
@@ -374,11 +341,9 @@ class ReplenishmentReportAdmin(admin.ModelAdmin):
         """
         Забороняє редагування, якщо звіт знаходиться у статусі ORDER_CREATED.
         """
-        # 1. Якщо ми переглядаємо конкретний об'єкт (obj is not None)
         if obj and obj.status == obj.Status.ORDER_CREATED:
             return False
-            
-        # 2. Для всіх інших об'єктів або списку об'єктів, використовуємо стандартні дозволи
+        
         return super().has_change_permission(request, obj)
     
     def has_add_permission(self, request):
@@ -388,7 +353,6 @@ class ReplenishmentReportAdmin(admin.ModelAdmin):
         super().save_formset(request, form, formset, change)
         
         if formset.model == ReplenishmentItem:
-            # ВИКЛИК 1: Після ручного збереження (Admin Inline)
             recalculate_report_pricing(form.instance)
     
     def get_urls(self):

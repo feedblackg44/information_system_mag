@@ -26,14 +26,10 @@ def set_column_and_row_formatting(sheet):
             vertical="bottom",
         )
         cell.font = Font(bold=False)
-        cell.border = Border()  # без границ
+        cell.border = Border()
 
 
 def generate_column_names(headers):
-    """
-    headers: список названий колонок
-    return: dict {header_name: col_letter}
-    """
     names = {}
     for idx, key in enumerate(headers, start=1):
         names[key] = get_column_letter(idx)
@@ -41,11 +37,6 @@ def generate_column_names(headers):
 
 
 def insert_headers(sheet, headers):
-    """
-    headers: dict {header_name: col_letter}
-    Если в нужной колонке нет такого заголовка,
-    вставляем колонку и пишем заголовок в строку 1.
-    """
     for key, col_letter in headers.items():
         cell = sheet[f"{col_letter}1"]
         if cell.value != key:
@@ -55,10 +46,6 @@ def insert_headers(sheet, headers):
 
 
 def find_last_row(sheet, column_letter="B"):
-    """
-    Аналог B1.End(xlDown): ищем последнюю непустую строку по указанной колонке.
-    Если данных нет – возвращаем 2 (чтобы дальше можно было сравнить > 2).
-    """
     col_idx = column_index_from_string(column_letter)
     last_data_row = None
     for row in range(sheet.max_row, 1, -1):
@@ -69,17 +56,10 @@ def find_last_row(sheet, column_letter="B"):
     return last_data_row or 2
 
 
-# Регэксп для замены ссылок вида A2, AB2 и т.п. (относительных по строке)
-# Не трогаем абсолютные строки типа $A$2, потому что перед '2' стоит '$'.
 CELL_REF_ROW2_RE = re.compile(r"(?<!\$)([A-Z]{1,3})2(?!\d)")
 
 
 def shift_formula_from_row2(formula: str, target_row: int) -> str:
-    """
-    Эмулируем Excel AutoFill вниз:
-    меняем все относительные ссылки вида A2 / AB2 на A<target_row> / AB<target_row>.
-    Абсолютные ($A$2) не трогаем.
-    """
     if target_row == 2 or not isinstance(formula, str) or not formula.startswith("="):
         return formula
 
@@ -91,21 +71,12 @@ def shift_formula_from_row2(formula: str, target_row: int) -> str:
 
 
 def apply_formulas(sheet, formulas, headers):
-    """
-    Ставит формулы в строку 2 (как было в оригинале).
-    formulas: dict {header_name: formula_string_for_row2}
-    headers: dict {header_name: col_letter}
-    """
     for key, formula in formulas.items():
         col_letter = headers[key]
         sheet[f"{col_letter}2"].value = formula
 
 
 def autofill_formulas(sheet, formulas, headers):
-    """
-    Эмуляция AutoFill из Excel: берём формулу из строки 2,
-    и для каждой следующей строки заменяем '...2' на нужный номер строки.
-    """
     last_row = find_last_row(sheet, "B")
     if last_row <= 2:
         return
@@ -130,9 +101,6 @@ def hide_columns_range(sheet, start_col_letter, end_col_letter):
 
 
 def color_entire_column(sheet, col_letter, rgb_tuple):
-    """
-    rgb_tuple: (R, G, B) в 0..255
-    """
     r, g, b = rgb_tuple
     hex_color = f"{r:02X}{g:02X}{b:02X}"
     fill = PatternFill(fill_type="solid", start_color="FF" + hex_color, end_color="FF" + hex_color)
@@ -151,19 +119,15 @@ def main(filename=None, echo=True):
     if not filename:
         raise SystemExit("Excel filename is required (either argument or --excelname)")
 
-    # Открываем книгу
     book = load_workbook(filename, data_only=False)
 
     sheet1 = book["Sheet1"]
     sheet3 = book["Sheet3"]
 
-    # Форматирование столбцов и первой строки
     set_column_and_row_formatting(sheet1)
 
-    # Freeze panes на A2
     sheet1.freeze_panes = "A2"
 
-    # Sheet3
     sheet3.column_dimensions["A"].width = 15
     set_column_and_row_formatting(sheet3)
 
@@ -216,7 +180,6 @@ def main(filename=None, echo=True):
     insert_headers(sheet1, names1)
     insert_headers(sheet3, names3)
 
-    # Формулы для строки 2 (как в исходном коде)
     formulas_sheet1 = {
         "Used Minimum Order Quantity": (
             f'=_xlfn.MAXIFS(Sheet2!D:D, Sheet2!B:B, {names1["Item No"]}2, '
@@ -325,25 +288,20 @@ def main(filename=None, echo=True):
         ),
     }
 
-    # Формулы в строку 2
     apply_formulas(sheet1, formulas_sheet1, names1)
     apply_formulas(sheet3, formulas_sheet3, names3)
 
-    # Эмуляция AutoFill вниз
     autofill_formulas(sheet1, formulas_sheet1, names1)
     autofill_formulas(sheet3, formulas_sheet3, names3)
 
-    # Скрываем целый диапазон колонок
     hide_columns_range(
         sheet1,
         names1["Effectiveness"],
         names1["Empty ADS Check Profit"],
     )
 
-    # Красим колонку "Best suggested quantity"
     color_entire_column(sheet1, names1["Best suggested quantity"], (146, 208, 80))
 
-    # Сохраняем и выходим
     book.save(filename)
 
     if echo:

@@ -131,24 +131,20 @@ class Document(models.Model):
         DocumentItem.objects.bulk_update(items, ["price"])
     
     def clean(self):
-        # PURCHASE: only dst
         if self.doc_type == self.DocType.PURCHASE:
             if not self.dst_warehouse or self.src_warehouse:
                 raise ValidationError("Прихід повинен мати тільки склад отримувача (dst_warehouse).")
 
-        # SALE: only src
         if self.doc_type == self.DocType.SALE:
             if not self.src_warehouse or self.dst_warehouse:
                 raise ValidationError("Продаж повинен мати тільки склад відправника (src_warehouse).")
 
-        # WRITE_OFF: only src
         if self.doc_type == self.DocType.WRITE_OFF:
             if not self.src_warehouse:
                 raise ValidationError("Списання повинно мати склад відправника (src_warehouse).")
             if self.dst_warehouse:
                 raise ValidationError("Списання не може мати склад отримувача.")
 
-        # TRANSFER: src and dst must exist AND differ
         if self.doc_type == self.DocType.TRANSFER:
             if not self.src_warehouse or not self.dst_warehouse:
                 raise ValidationError("Переміщення повинно мати обидва склади.")
@@ -160,14 +156,12 @@ class Document(models.Model):
         if self.status == self.Status.POSTED:
             raise ValidationError("Документ вже проведено.")
 
-        # Проверить бизнес-валидацию
         self.clean()
 
         for item in self.items.all():  # type: ignore
             product = item.product
             qty = item.quantity
 
-            # ------------ PURCHASE ------------
             if self.doc_type == self.DocType.PURCHASE:
                 inv, _ = Inventory.objects.get_or_create(
                     product=product,
@@ -177,7 +171,6 @@ class Document(models.Model):
                 inv.quantity += qty
                 inv.save()
 
-            # ------------ SALE ------------
             elif self.doc_type == self.DocType.SALE:
                 inv = Inventory.objects.get(
                     product=product,
@@ -188,7 +181,6 @@ class Document(models.Model):
                 inv.quantity -= qty
                 inv.save()
 
-            # ------------ WRITE-OFF ------------
             elif self.doc_type == self.DocType.WRITE_OFF:
                 inv = Inventory.objects.get(
                     product=product,
@@ -199,9 +191,7 @@ class Document(models.Model):
                 inv.quantity -= qty
                 inv.save()
 
-            # ------------ TRANSFER ------------
             elif self.doc_type == self.DocType.TRANSFER:
-                # убавить на src
                 inv_src = Inventory.objects.get(
                     product=product,
                     warehouse=self.src_warehouse
@@ -211,7 +201,6 @@ class Document(models.Model):
                 inv_src.quantity -= qty
                 inv_src.save()
 
-                # добавить на dst
                 inv_dst, _ = Inventory.objects.get_or_create(
                     product=product,
                     warehouse=self.dst_warehouse,
@@ -234,7 +223,6 @@ class Document(models.Model):
             product = item.product
             qty = item.quantity
 
-            # ------------ PURCHASE ------------
             if self.doc_type == self.DocType.PURCHASE:
                 inv = Inventory.objects.get(product=product, warehouse=self.dst_warehouse)
                 if inv.quantity < qty:
@@ -242,7 +230,6 @@ class Document(models.Model):
                 inv.quantity -= qty
                 inv.save()
 
-            # ------------ SALE ------------
             elif self.doc_type == self.DocType.SALE:
                 inv, _ = Inventory.objects.get_or_create(
                     product=product, warehouse=self.src_warehouse, defaults={"quantity": 0}
@@ -250,7 +237,6 @@ class Document(models.Model):
                 inv.quantity += qty
                 inv.save()
 
-            # ------------ WRITE_OFF ------------
             elif self.doc_type == self.DocType.WRITE_OFF:
                 inv, _ = Inventory.objects.get_or_create(
                     product=product, warehouse=self.src_warehouse, defaults={"quantity": 0}
@@ -258,7 +244,6 @@ class Document(models.Model):
                 inv.quantity += qty
                 inv.save()
 
-            # ------------ TRANSFER ------------
             elif self.doc_type == self.DocType.TRANSFER:
                 inv_src, _ = Inventory.objects.get_or_create(
                     product=product, warehouse=self.src_warehouse, defaults={"quantity": 0}

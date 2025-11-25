@@ -3,7 +3,6 @@ from .Profit import Profit
 
 
 def GetDealToMOQ(deal, desired_moq):
-    # Отбираем релевантные товары
     items, incorrect_items = [], []
     for item in deal.values():
         if Profit(item, desired_moq) > 0 and item['AverageDailySales'] > 0 and item['BestSuggestedQuantity'] < item['CanBeSoldTotal']:
@@ -25,22 +24,12 @@ def GetDealToMOQ(deal, desired_moq):
 
     desired_moq += invs.sum() - incorrect_amounts.sum()
 
-    # Пропорциональное распределение
-    # c = desired_moq / ads.sum()
-    # x = np.floor(ads * c).astype(int)
-    # x = np.maximum(x, min_q + invs)
     x = min_q + invs
     
     diff = int(desired_moq - x.sum())
-    
-    # if diff > 0 and diff >= len(x):
-    #     x += 1
-    # elif diff > 0:
-    #     residuals = ads * c - x
-    #     # priority = (1 - residuals) / ads
-    #     x[np.argpartition(-residuals, diff)[:diff]] += 1
 
-    func_correct = lambda a, b, diff=diff: a + b if diff > 0 else a - b
+    def func_correct(a, b, diff=diff):
+        return a + b if diff > 0 else a - b
     
     if diff != 0:
         z = x / ads
@@ -57,9 +46,7 @@ def GetDealToMOQ(deal, desired_moq):
             x[best_idx] = func_correct(x[best_idx], 1)
             z[best_idx] = func_correct(z[best_idx], 1 / ads[best_idx])
 
-    # Учитываем наличие на складе
     x -= invs
 
-    # Применяем рассчитанные количества
     for item, qty in zip(items, x):
         item['BestSuggestedQuantity'] = qty

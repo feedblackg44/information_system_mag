@@ -6,7 +6,6 @@ from django.db import models
 
 
 class TaskNotification(models.Model):
-    """Таблица для передачи сообщений от воркеров пользователям."""
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     message = models.TextField()
     message_type = models.CharField(max_length=20, default='success') # success, error, warning
@@ -145,8 +144,3 @@ class ReplenishmentItem(models.Model):
 
     def __str__(self):
         return f"{self.product_sku} ({self.product_name}) у Звіті №{self.report.id}"  # type: ignore
-
-    def save(self, *args, **kwargs):
-        # Тут буде розміщена логіка розрахунку ADS, Best Quantity тощо.
-        # Для коректності Inventory має бути Decimal, як і в Inventory моделі.
-        super().save(*args, **kwargs)
