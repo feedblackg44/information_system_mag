@@ -1,3 +1,4 @@
+import json
 import pickle
 from collections import defaultdict
 from datetime import date
@@ -5,6 +6,8 @@ from decimal import Decimal
 
 import django_rq
 import pandas as pd
+import redis
+from config.settings import REDIS_HOST, REDIS_PORT
 from crm.models import Document, DocumentItem
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
@@ -141,6 +144,8 @@ def run_prophet_forecast_logic(start_date, end_date):
     return updated_count, "Прогноз успішно завершено."
 
 
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+
 @django_rq.job('default', timeout=3600) 
 def run_prophet_forecast_task(start_date_str, end_date_str, user_id):
     start_date = date.fromisoformat(start_date_str)
@@ -158,6 +163,13 @@ def run_prophet_forecast_task(start_date_str, end_date_str, user_id):
             message_type='success' if updated_count > 0 else 'warning',
             is_read=False
         )
+        
+        channel_name = f"notifications_{user_id}"
+        payload = {
+            "message": f"Прогноз виконано для {updated_count} товарів. {message}",
+            "type": "success" if updated_count > 0 else "warning"
+        }
+        redis_client.publish(channel_name, json.dumps(payload))
     except Exception as e:
         print(f"❌ Failed to create TaskNotification for user {user_id}: {e}")
     

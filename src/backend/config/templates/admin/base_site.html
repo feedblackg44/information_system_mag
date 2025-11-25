@@ -5,33 +5,18 @@
 <style>
     #global-toast-container {
         position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 99999;
-        width: 350px;
-        pointer-events: none;
+        top: 20px; right: 20px; z-index: 99999; width: 350px; pointer-events: none;
     }
     .toast-notification {
-        pointer-events: auto;
-        background: white;
-        border-left: 5px solid;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        padding: 15px;
-        margin-bottom: 10px;
-        border-radius: 4px;
-        animation: slideIn 0.5s ease-out;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        pointer-events: auto; background: white; border-left: 5px solid;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 15px; margin-bottom: 10px;
+        border-radius: 4px; animation: slideIn 0.5s ease-out;
+        display: flex; justify-content: space-between; align-items: center;
     }
     .toast-success { border-color: #28a745; color: #155724; }
     .toast-warning { border-color: #ffc107; color: #856404; }
     .toast-error { border-color: #dc3545; color: #721c24; }
-    
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 </style>
 
 <script>
@@ -40,23 +25,22 @@
         container.id = 'global-toast-container';
         document.body.appendChild(container);
 
-        var checkUrl = "{% url 'global_check_notifications' %}"; 
+        var streamUrl = "{% url 'stream_notifications' %}";
 
-        function checkNotifications() {
-            fetch(checkUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error("Network response was not ok");
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.notifications && data.notifications.length > 0) {
-                        data.notifications.forEach(note => {
-                            showToast(note.message, note.type);
-                        });
-                    }
-                })
-                .catch(err => console.error(err));
-        }
+        var source = new EventSource(streamUrl);
+
+        source.onmessage = function(event) {
+            try {
+                var data = JSON.parse(event.data);
+                showToast(data.message, data.type);
+            } catch (e) {
+                console.error("Error parsing notification JSON", e);
+            }
+        };
+
+        source.onerror = function(err) {
+            console.warn("SSE connection lost, browser will reconnect automatically...");
+        };
 
         function showToast(message, type) {
             var toast = document.createElement('div');
@@ -76,8 +60,6 @@
 
             setTimeout(() => { toast.remove(); }, 7000);
         }
-
-        setInterval(checkNotifications, 3000);
     });
 </script>
 {% endblock %}

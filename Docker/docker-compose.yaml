@@ -31,8 +31,8 @@ services:
     working_dir: /app/src/backend
     ports:
       - "8000:8000"
-    # command: uv run gunicorn config.wsgi:application --bind 0.0.0.0:8000
-    command: uv run manage.py runserver 0.0.0.0:8000
+    command: uv run gunicorn config.wsgi:application -k gevent --worker-connections 1000 --bind 0.0.0.0:8000
+    # command: uv run manage.py runserver 0.0.0.0:8000
 
   worker:
     build:
