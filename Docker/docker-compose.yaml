@@ -7,6 +7,11 @@ services:
       POSTGRES_DB: warehouse
       POSTGRES_USER: warehouse
       POSTGRES_PASSWORD: warehouse
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warehouse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "5432:5432"
     volumes:
@@ -17,14 +22,34 @@ services:
     volumes:
       - redisdata:/data
 
+  manage:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: django_manage
+    volumes:
+      - ../src:/app/src
+    working_dir: /app/src/backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    entrypoint: ["uv", "run", "manage.py"]
+    command: ["migrate"]
+
   app:
     build:
       context: ..
       dockerfile: Dockerfile
     container_name: django_app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      manage:
+        condition: service_completed_successfully
     restart: always
     volumes:
       - ../src:/app/src
@@ -32,7 +57,6 @@ services:
     ports:
       - "8000:8000"
     command: uv run gunicorn config.wsgi:application -k gevent --worker-connections 1000 --bind 0.0.0.0:8000
-    # command: uv run manage.py runserver 0.0.0.0:8000
 
   worker:
     build:
@@ -40,8 +64,12 @@ services:
       dockerfile: Dockerfile
     container_name: django_worker
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      manage:
+        condition: service_completed_successfully
     volumes:
       - ../src:/app/src
     working_dir: /app/src/backend
