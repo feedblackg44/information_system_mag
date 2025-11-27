@@ -10,17 +10,17 @@ def GetDealToMOQ(deal, desired_moq):
         else:
             incorrect_items.append(item)
 
-    ads = np.array([item['AverageDailySales'] for item in items], dtype=float)
+    ads = np.array((item['AverageDailySales'] for item in items), dtype=float)
 
     if ads.sum() == 0 or not items:
         items = list(deal.values())
         incorrect_items = []
-        ads = np.array([item['AverageDailySales'] for item in items], dtype=float)
+        ads = np.array((item['AverageDailySales'] for item in items), dtype=float)
         incorrect_amounts = 0
 
-    invs = np.array([item['Inventory'] for item in items], dtype=int)
-    min_q = np.array([item['SystemSuggestedQuantity'] for item in items], dtype=int)
-    incorrect_amounts = np.array([item['BestSuggestedQuantity'] for item in incorrect_items], dtype=int)
+    invs = np.array((item['Inventory'] for item in items), dtype=int)
+    min_q = np.array((item['SystemSuggestedQuantity'] for item in items), dtype=int)
+    incorrect_amounts = np.array((item['BestSuggestedQuantity'] for item in incorrect_items), dtype=int)
 
     desired_moq += invs.sum() - incorrect_amounts.sum()
 
@@ -32,19 +32,19 @@ def GetDealToMOQ(deal, desired_moq):
         return a + b if diff > 0 else a - b
     
     if diff != 0:
-        z = x / ads
+        dfs = x / ads
         for _ in range(diff):
-            mean_z = z.mean()
-            mean2_z = (z ** 2).mean()
+            mean_dfs = dfs.mean()
+            mean2_dfs = (dfs ** 2).mean()
             
-            new_mean = func_correct(mean_z, 1 / (len(z) * ads))
-            new_mean2 = func_correct(mean2_z, (2 * z + 1 / ads) / (len(z) * ads))
+            new_mean = func_correct(mean_dfs, 1 / (len(dfs) * ads))
+            new_mean2 = func_correct(mean2_dfs, (2 * dfs + 1 / ads) / (len(dfs) * ads))
             new_var = new_mean2 - new_mean ** 2
 
             best_idx = np.argmin(new_var)
             
             x[best_idx] = func_correct(x[best_idx], 1)
-            z[best_idx] = func_correct(z[best_idx], 1 / ads[best_idx])
+            dfs[best_idx] = func_correct(dfs[best_idx], 1 / ads[best_idx])
 
     x -= invs
 
