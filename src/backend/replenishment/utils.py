@@ -66,7 +66,6 @@ def execute_final_optimization_pass(deals_variants_all, budget, max_investment_p
 
 def run_prophet_forecast_logic(start_date, end_date):
     """
-    ⚠️ УВАГА: Це синхронний запуск. В реальному додатку має бути Celery/RQ!
     Запускає Prophet для всіх товарів і оновлює таблицю ForecastData.
     """
     
