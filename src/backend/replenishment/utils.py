@@ -98,20 +98,16 @@ def run_prophet_forecast_logic(start_date, end_date):
         df = pd.DataFrame(data['data'])
         df['ds'] = pd.to_datetime(df['ds'])
 
-        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-        df = df.set_index('ds').reindex(date_range, fill_value=0).rename_axis('ds').reset_index()
-        
-        df['y'] = pd.to_numeric(df['y'])
+        df = df.sort_values('ds')
 
-        nonzero_indices = df[df['y'] > 0].index
-        
-        if len(nonzero_indices) == 0:
-            continue
-            
-        first_sale_index = nonzero_indices.min()
-        last_sale_index = nonzero_indices.max()
-        
-        df = df.iloc[first_sale_index : last_sale_index + 1].copy()
+        actual_start_date = df['ds'].min()
+        actual_end_date = df['ds'].max()
+
+        full_range = pd.date_range(start=actual_start_date, end=actual_end_date, freq='D')
+
+        df = df.set_index('ds').reindex(full_range, fill_value=0).rename_axis('ds').reset_index()
+
+        df['y'] = pd.to_numeric(df['y'])
 
         if len(df) < 15 or df['y'].sum() == 0:
             continue
@@ -119,26 +115,39 @@ def run_prophet_forecast_logic(start_date, end_date):
         m = Prophet(weekly_seasonality='auto', daily_seasonality=False)  # type: ignore
         m.add_seasonality(name='payday_monthly', period=30.5, fourier_order=10, prior_scale=15.0)
 
-        m.fit(df)
-        
-        future = m.make_future_dataframe(periods=30)
-        forecast = m.predict(future)
-        
-        forecast_period = forecast[forecast['ds'] > df['ds'].max()]
-        
-        if len(forecast_period) == 0:
-             ads_value = 0
-        else:
-             total_predicted = forecast_period['yhat'].sum()
-             ads_value = total_predicted / len(forecast_period)
+        try:
+            m.fit(df)
+            
+            future = m.make_future_dataframe(periods=30)
+            forecast = m.predict(future)
+            
+            forecast_period = forecast[forecast['ds'] > df['ds'].max()]
+            
+            if len(forecast_period) == 0:
+                 ads_value = 0
+            else:
+                 forecast_period['yhat'] = forecast_period['yhat'].clip(lower=0)
+                 total_predicted = forecast_period['yhat'].sum()
+                 ads_value = total_predicted / len(forecast_period)
 
-        ads_decimal = Decimal(ads_value).quantize(Decimal('.01'))
-        
-        ForecastData.objects.update_or_create(
-            product_id=product_id,
-            defaults={'ads': ads_decimal}
-        )
-        updated_count += 1
+            ads_decimal = Decimal(ads_value).quantize(Decimal('.01'))
+            
+            ForecastData.objects.update_or_create(
+                product_id=product_id,
+                defaults={'ads': ads_decimal}
+            )
+            updated_count += 1
+            
+        except Exception as e:
+            print(f"Error forecasting product {product_id}: {e}")
+            
+            if not ForecastData.objects.filter(product_id=product_id).exists():
+                ForecastData.objects.create(
+                    product_id=product_id,
+                    ads=Decimal('0.00')
+                )
+            
+            continue
 
     return updated_count, "Прогноз успішно завершено."
 
