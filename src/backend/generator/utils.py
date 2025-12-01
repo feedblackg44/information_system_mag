@@ -1,3 +1,5 @@
+import itertools
+import math
 import random
 from decimal import Decimal
 
@@ -15,7 +17,7 @@ from dateutil.relativedelta import relativedelta
 from django.utils.timezone import now
 
 
-def generate_random_name():
+def name_generator():
     parts = [
         'Pro', 'Max', 'Tech', 'Data', 'Net', 'Core', 'Flex', 'Ultra', 'Nano', 'Smart',
         'Alpha', 'Mega', 'Mini', 'Hyper', 'Super', 'Micro', 'Eco', 'Power', 'Speed',
@@ -32,29 +34,113 @@ def generate_random_name():
         'flux', 'shift', 'spark', 'glide', 'rise', 'flow', 'boost', 'quest',
         'forge', 'craft', 'blend', 'sync', 'wave', 'beam', 'flare', 'storm', 'trail'
     ]
-    return random.choice(parts) + random.choice(suffix)
+    
+    # 1. Создаем все возможные комбинации
+    all_combinations = list(itertools.product(parts, suffix))
+    
+    # 2. Перемешиваем их
+    random.shuffle(all_combinations)
+    
+    # 3. Выдаем по одному
+    for p, s in all_combinations:
+        yield p + s
 
 
 def generate_brands(count):
     brands = []
+    name_gen = name_generator()
     for _ in range(count):
         b = Brand.objects.create(
-            name=generate_random_name(),
+            name=next(name_gen),
             country=random.choice(["USA", "Germany", "China", "Japan", "France"])
         )
         brands.append(b)
     return brands
 
 
-def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
+def empty_warehouse(warehouse_name, func_to_show=None):
+    try:
+        warehouse = Warehouse.objects.get(name=warehouse_name)
+    except Warehouse.DoesNotExist:
+        raise ValueError(f"Warehouse '{warehouse_name}' does not exist.")
+    
+    if func_to_show:
+        func_to_show(f"Using warehouse: {warehouse.name}")
+        func_to_show("Deleting all documents...")
+    
+    src_docs = Document.objects.filter(src_warehouse=warehouse)
+    for idx, doc in enumerate(src_docs, start=1):
+        if func_to_show:
+            func_to_show(f"Deleting document {idx} of {src_docs.count()}...", end="\r")
+        if doc.status == Document.Status.POSTED:
+            doc.unpost()
+        doc.delete()
+        
+        if func_to_show and idx == src_docs.count():
+            func_to_show("")
+    
+    if func_to_show:
+        func_to_show("Deleted all source documents.")
+    
+    dst_docs = Document.objects.filter(dst_warehouse=warehouse)
+    for idx, doc in enumerate(dst_docs, start=1):
+        if func_to_show:
+            func_to_show(f"Deleting document {idx} of {dst_docs.count()}...", end="\r")
+        if doc.status == Document.Status.POSTED:
+            doc.unpost()
+        doc.delete()
+        
+        if func_to_show and idx == dst_docs.count():
+            func_to_show("")
+    
+    if func_to_show:
+        func_to_show("Deleted all destination documents.")
+        func_to_show("Deleting all inventory, products and brands...")
+
+    Inventory.objects.filter(warehouse=warehouse).delete()
+    ProductPriceLevel.objects.all().delete()
+    Product.objects.all().delete()
+    Brand.objects.all().delete()
+    
+    if func_to_show:
+        func_to_show("Emptied the warehouse completely.")
+
+
+def generate_products(warehouse_name, brands, total_days: int, 
+                      target_date=None,
+                      max_products_per_brand=5, 
+                      max_price_levels=5,
+                      system_coverage_days=14,
+                      func_to_show=None):
+    try:
+        warehouse = Warehouse.objects.get(name=warehouse_name)
+    except Warehouse.DoesNotExist:
+        raise ValueError(f"Warehouse '{warehouse_name}' does not exist.")
+    
+    if func_to_show:
+        func_to_show(f"Using warehouse: {warehouse.name}")
+    
+    doc = Document.objects.create(
+        doc_type=Document.DocType.PURCHASE,
+        status=Document.Status.DRAFT,
+        dst_warehouse=warehouse,
+        doc_date=target_date if target_date else now(),
+        note="Початкове завантаження складу",
+    )
+    
     products = []
 
     for brand in brands:
+        if func_to_show:
+            func_to_show(f"Generating products for brand: {brand.name}.", end="\r")
         products_count = random.randint(1, max_products_per_brand)
 
-        for _ in range(products_count):
+        for idx in range(products_count):
+            if func_to_show:
+                func_to_show(f"Generating products for brand: {brand.name}. Processing product {idx + 1}/{products_count}.", end="\r")
 
-            name = generate_random_name()
+            name_gen = name_generator()
+            name = next(name_gen)
 
             product = Product.objects.create(
                 name=name,
@@ -62,8 +148,25 @@ def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
                 brand=brand,
                 sale_price=0
             )
+            
+            ads = random.uniform(0.01, 2.0)
+            needed_qty = system_coverage_days * ads
 
-            min_purchase_price = generate_price_levels(product, max_price_levels)
+            inventory_raw = random.uniform(0, needed_qty * 1.2)
+            inventory = int(max(1, round(ads * total_days + inventory_raw)))
+
+            DocumentItem.objects.create(
+                document=doc,
+                product=product,
+                quantity=Decimal(inventory),
+                price=Decimal("0")
+            )
+            
+            system_suggested_quantity = max(0, math.ceil(needed_qty - inventory_raw))
+
+            min_purchase_price = generate_price_levels(
+                product, system_suggested_quantity, inventory_raw, max_products_per_brand, max_price_levels
+            )
 
             sale_price = round(random.uniform(
                 min_purchase_price * 1.05,
@@ -74,21 +177,24 @@ def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
             product.save()
 
             products.append(product)
+        
+        if func_to_show:
+            func_to_show("")
+            
+    doc.post()
 
     return products
 
 
-def generate_price_levels(product, max_levels):
+def generate_price_levels(product, system_suggested_quantity, inventory_raw, max_products_per_brand, max_levels):
     """
     Generates random price levels for a product.
     Returns the minimum purchase price.
     """
     moq = {1: round(random.uniform(5, 100), 2)}
-
     extra_levels = random.randint(1, max_levels - 1)
-
     additional_quantities = sorted(
-        random.sample(range(2, 100), k=extra_levels)
+        random.sample(range(2, int((system_suggested_quantity + inventory_raw) * max_products_per_brand)), k=extra_levels)
     )
 
     last_price = moq[1]
@@ -112,55 +218,6 @@ def generate_price_levels(product, max_levels):
         )
 
     return min_purchase_price
-
-
-def generate_initial_stock(warehouse_name, total_days: int, 
-                           target_date=None,
-                           func_to_show=None):
-    """
-    Creates a purchase document to initialize stock levels for all products.
-    Each product will receive a quantity based on a random average daily sales (ADS)
-    """
-
-    try:
-        warehouse = Warehouse.objects.get(name=warehouse_name)
-    except Warehouse.DoesNotExist:
-        raise ValueError(f"Warehouse '{warehouse_name}' does not exist.")
-
-    if func_to_show:
-        func_to_show(f"Using warehouse: {warehouse.name}")
-
-    doc = Document.objects.create(
-        doc_type=Document.DocType.PURCHASE,
-        status=Document.Status.DRAFT,
-        dst_warehouse=warehouse,
-        doc_date=target_date if target_date else now(),
-        note="Початкове завантаження складу",
-    )
-
-    len_products = Product.objects.count()
-    for idx, product in enumerate(Product.objects.all(), start=1):
-        if func_to_show:
-            func_to_show(f"Processing product {idx}/{len_products}.", end="\r")
-        
-        ads = random.uniform(0.01, 10.0)
-
-        qty_raw = ads * total_days * random.uniform(0.9, 1.2)
-        qty = int(max(1, round(qty_raw)))
-
-        DocumentItem.objects.create(
-            document=doc,
-            product=product,
-            quantity=Decimal(qty),
-            price=Decimal("0")
-        )
-
-    if func_to_show:
-        func_to_show("")
-    
-    doc.post()
-
-    return doc
 
 
 def generate_sales_distribution(
