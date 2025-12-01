@@ -78,7 +78,6 @@ def generate_products(brands, max_products_per_brand=5, max_price_levels=5):
     return products
 
 
-
 def generate_price_levels(product, max_levels):
     """
     Generates random price levels for a product.
