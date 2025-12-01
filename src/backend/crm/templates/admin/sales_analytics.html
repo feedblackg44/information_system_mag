@@ -1,5 +1,30 @@
 {% extends "admin/base_site.html" %}
 
+{% block extrastyle %}
+    {{ block.super }}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        .select2-container .select2-selection--single {
+            height: 38px !important;
+            padding: 5px;
+            border: 1px solid #ced4da;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+        }
+        .select2-container {
+            display: block; 
+            width: 100% !important;
+        }
+    </style>
+{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="card p-3">
 
@@ -7,23 +32,23 @@
 
     <form method="get" class="mb-4">
 
-        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+        <div style="display:flex; gap:20px; flex-wrap:wrap; align-items: flex-end;">
 
-            <div>
+            <div style="min-width: 250px; flex: 1;">
                 <label>Товар</label><br>
-                <select name="product" class="form-control">
+                <select name="product" class="form-control select2-search">
                     <option value="">Всі</option>
                     {% for p in products %}
                         <option value="{{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
-                            {{ p.name }}
+                            {{ p.name }} ({{ p.brand.name }})
                         </option>
                     {% endfor %}
                 </select>
             </div>
 
-            <div>
+            <div style="min-width: 200px; flex: 1;">
                 <label>Склад</label><br>
-                <select name="warehouse" class="form-control">
+                <select name="warehouse" class="form-control select2-search">
                     <option value="">Всі</option>
                     {% for w in warehouses %}
                         <option value="{{ w.id }}" {% if selected_warehouse == w.id|stringformat:"s" %}selected{% endif %}>
@@ -35,17 +60,19 @@
 
             <div>
                 <label>Дата від</label><br>
-                <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="height: 38px;">
             </div>
 
             <div>
                 <label>Дата до</label><br>
-                <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="height: 38px;">
+            </div>
+            
+            <div>
+                <button class="btn btn-primary">Застосувати</button>
             </div>
 
         </div>
-
-        <button class="btn btn-primary mt-3">Застосувати</button>
 
     </form>
 
@@ -54,6 +81,31 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    (function() {
+        var $jq = window.jQuery;
+        
+        if (typeof $jq === 'undefined') {
+            console.error('jQuery не завантажився');
+            return;
+        }
+
+        $jq(document).ready(function() {
+            console.log('Ініціалізація Select2...');
+            
+            $jq('.select2-search').select2({
+                width: '100%',
+                language: "uk",
+                placeholder: "Оберіть...",
+                allowClear: true
+            });
+            
+            console.log('Select2 застосовано до елементів .select2-search');
+        });
+    })();
+</script>
+
 <script>
 const ctx = document.getElementById('salesChart');
 const isSingleProduct = {{ selected_product|yesno:"true,false" }};
