@@ -10,17 +10,17 @@ def GetDealToMOQ(deal, desired_moq):
         else:
             incorrect_items.append(item)
 
-    ads = np.array((item['AverageDailySales'] for item in items), dtype=float)
+    ads = np.array([item['AverageDailySales'] for item in items], dtype=float)
 
     if ads.sum() == 0 or not items:
         items = list(deal.values())
         incorrect_items = []
-        ads = np.array((item['AverageDailySales'] for item in items), dtype=float)
+        ads = np.array([item['AverageDailySales'] for item in items], dtype=float)
         incorrect_amounts = 0
 
-    invs = np.array((item['Inventory'] for item in items), dtype=int)
-    min_q = np.array((item['SystemSuggestedQuantity'] for item in items), dtype=int)
-    incorrect_amounts = np.array((item['BestSuggestedQuantity'] for item in incorrect_items), dtype=int)
+    invs = np.array([item['Inventory'] for item in items], dtype=int)
+    min_q = np.array([item['SystemSuggestedQuantity'] for item in items], dtype=int)
+    incorrect_amounts = np.array([item['BestSuggestedQuantity'] for item in incorrect_items], dtype=int)
 
     desired_moq += invs.sum() - incorrect_amounts.sum()
 
