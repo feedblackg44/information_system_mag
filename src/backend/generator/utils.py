@@ -35,13 +35,8 @@ def name_generator():
         'forge', 'craft', 'blend', 'sync', 'wave', 'beam', 'flare', 'storm', 'trail'
     ]
     
-    # 1. Создаем все возможные комбинации
     all_combinations = list(itertools.product(parts, suffix))
-    
-    # 2. Перемешиваем их
     random.shuffle(all_combinations)
-    
-    # 3. Выдаем по одному
     for p, s in all_combinations:
         yield p + s
 
