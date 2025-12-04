@@ -58,6 +58,9 @@ class InventoryAdmin(admin.ModelAdmin):
     list_display = ("product", "warehouse", "quantity")
     list_filter = ("warehouse",)
     search_fields = ("product__name", "product__sku")
+    
+    def has_add_permission(self, request):
+        return False
 
 
 # -----------------------------

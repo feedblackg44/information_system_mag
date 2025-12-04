@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -17,7 +18,19 @@ class Product(models.Model):
     name = models.CharField(max_length=128)
     sku = models.CharField(max_length=64, unique=True)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
-    sale_price = models.DecimalField(max_digits=10, decimal_places=2)
+    sale_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(sale_price__gte=0),
+                name='product_sale_price_non_negative'
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.sku})"
@@ -25,11 +38,28 @@ class Product(models.Model):
 
 class ProductPriceLevel(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    minimal_quantity = models.PositiveIntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    minimal_quantity = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+    
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
 
     class Meta:
         unique_together = ("product", "minimal_quantity")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(price__gte=0),
+                name='price_level_price_non_negative'
+            ),
+            models.CheckConstraint(
+                condition=models.Q(minimal_quantity__gte=1),
+                name='price_level_minimal_quantity_positive'
+            )
+        ]
 
     def __str__(self):
         return f"{self.product.name} - {self.minimal_quantity} pcs at {self.price}"
