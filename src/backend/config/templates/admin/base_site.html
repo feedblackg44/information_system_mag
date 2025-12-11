@@ -19,47 +19,56 @@
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 </style>
 
-{% comment %} <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        var container = document.createElement('div');
-        container.id = 'global-toast-container';
-        document.body.appendChild(container);
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsUrl = wsScheme + "://" + window.location.host + "/ws/notifications/";
 
-        var streamUrl = "{% url 'stream_notifications' %}";
+    const socket = new WebSocket(wsUrl);
 
-        var source = new EventSource(streamUrl);
+    socket.onopen = function() {
+        console.log("WS connected");
+    };
 
-        source.onmessage = function(event) {
-            try {
-                var data = JSON.parse(event.data);
-                showToast(data.message, data.type);
-            } catch (e) {
-                console.error("Error parsing notification JSON", e);
-            }
-        };
-
-        source.onerror = function(err) {
-            console.warn("SSE connection lost, browser will reconnect automatically...");
-        };
-
-        function showToast(message, type) {
-            var toast = document.createElement('div');
-            toast.className = 'toast-notification toast-' + type;
-            
-            var text = document.createElement('span');
-            text.innerText = message;
-            
-            var closeBtn = document.createElement('div');
-            closeBtn.innerHTML = '&times;';
-            closeBtn.style.cssText = "cursor:pointer; font-size:20px; margin-left:10px; font-weight:bold;";
-            closeBtn.onclick = function() { toast.remove(); };
-
-            toast.appendChild(text);
-            toast.appendChild(closeBtn);
-            container.appendChild(toast);
-
-            setTimeout(() => { toast.remove(); }, 7000);
+    socket.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            showToast(data.message, data.message_type || "success");
+        } catch (e) {
+            console.error("WS parse error", e);
         }
-    });
-</script> {% endcomment %}
+    };
+
+    socket.onclose = function() {
+        console.log("WS connection closed");
+        // опционально — авто-реконнект
+    };
+
+    function showToast(message, type) {
+        var container = document.getElementById('global-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'global-toast-container';
+            document.body.appendChild(container);
+        }
+
+        var toast = document.createElement('div');
+        toast.className = 'toast-notification toast-' + type;
+
+        var text = document.createElement('span');
+        text.innerText = message;
+
+        var closeBtn = document.createElement('div');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = "cursor:pointer; font-size:20px; margin-left:10px; font-weight:bold;";
+        closeBtn.onclick = function() { toast.remove(); };
+
+        toast.appendChild(text);
+        toast.appendChild(closeBtn);
+        container.appendChild(toast);
+
+        setTimeout(() => toast.remove(), 7000);
+    }
+});
+</script>
 {% endblock %}

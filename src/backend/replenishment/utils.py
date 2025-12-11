@@ -1,4 +1,3 @@
-import json
 import pickle
 from collections import defaultdict
 from datetime import date
@@ -8,13 +7,14 @@ import django_rq
 import pandas as pd
 import redis
 from config.settings import REDIS_HOST, REDIS_PORT
-from erp.models import Document, DocumentItem
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.db.models.functions import TruncDate
+from erp.models import Document, DocumentItem
 from prophet import Prophet
 
 from .models import ForecastData, TaskNotification
+from .notifications.sender import send_notification_to_user
 from .optimization.beautify import beautify
 from .optimization.from_matlab.GetAllDealVariants import GetAllDealVariants
 from .optimization.map_to_table import map_to_table
@@ -121,7 +121,7 @@ def run_prophet_forecast_logic(start_date, end_date):
             future = m.make_future_dataframe(periods=30)
             forecast = m.predict(future)
             
-            forecast_period = forecast[forecast['ds'] > df['ds'].max()]
+            forecast_period = forecast[forecast['ds'] > df['ds'].max()].copy()
             
             if len(forecast_period) == 0:
                  ads_value = 0
@@ -172,12 +172,11 @@ def run_prophet_forecast_task(start_date_str, end_date_str, user_id):
             is_read=False
         )
         
-        channel_name = f"notifications_{user_id}"
-        payload = {
-            "message": f"Прогноз виконано для {updated_count} товарів. {message}",
-            "type": "success" if updated_count > 0 else "warning"
-        }
-        redis_client.publish(channel_name, json.dumps(payload))
+        send_notification_to_user(
+            user_id,
+            f"Прогноз виконано для {updated_count} товарів. {message}"
+            # "success" if updated_count > 0 else "warning"  # type: ignore
+        )
     except Exception as e:
         print(f"❌ Failed to create TaskNotification for user {user_id}: {e}")
     

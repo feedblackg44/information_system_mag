@@ -1,8 +1,8 @@
-from erp.admin_views.sales_analytics import sales_analytics_view
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path
-from replenishment.admin_views.sse_notifications import sse_notifications_view
+from erp.admin_views.sales_analytics import sales_analytics_view
+
 from replenishment.models import TaskNotification
 
 
@@ -24,7 +24,6 @@ def get_notifications_view(request):
     return JsonResponse({'notifications': data})
 
 urlpatterns = [
-    path('api/stream-notifications/', sse_notifications_view, name='stream_notifications'),
     path('api/check-notifications/', get_notifications_view, name='global_check_notifications'),
     path("analytics/sales/", sales_analytics_view, name="sales_analytics"),
     path('', admin.site.urls),
