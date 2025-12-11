@@ -1,4 +1,4 @@
-from crm.models import Warehouse
+from erp.models import Warehouse
 from django.core.management.base import BaseCommand
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import make_aware

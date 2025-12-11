@@ -1,4 +1,4 @@
-name: warehouse_crm
+name: warehouse_erp
 
 services:
   db:
@@ -56,7 +56,7 @@ services:
     working_dir: /app/src/backend
     ports:
       - "8000:8000"
-    command: uv run gunicorn config.wsgi:application -k gevent --worker-connections 1000 --bind 0.0.0.0:8000
+    command: uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --workers 4
 
   worker:
     build:

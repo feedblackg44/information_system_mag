@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('crm', '0006_alter_document_doc_date'),
+        ('erp', '0006_alter_document_doc_date'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('ads', models.DecimalField(decimal_places=2, default=Decimal('0'), max_digits=10, verbose_name='Середньодобовий продаж (ADS)')),
                 ('last_updated', models.DateTimeField(auto_now=True, verbose_name='Останнє оновлення')),
-                ('product', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='forecast_data', to='crm.product', verbose_name='Продукт')),
+                ('product', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='forecast_data', to='erp.product', verbose_name='Продукт')),
             ],
         ),
         migrations.CreateModel(
@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
                 ('global_coverage_days', models.PositiveIntegerField(default=14, verbose_name='Цільове покриття (днів)')),
                 ('global_credit_terms', models.PositiveIntegerField(default=45, verbose_name='Кредитні умови (днів)')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL, verbose_name='Користувач')),
-                ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.warehouse', verbose_name='Склад поповнення')),
+                ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.warehouse', verbose_name='Склад поповнення')),
             ],
         ),
         migrations.CreateModel(
@@ -53,8 +53,8 @@ class Migration(migrations.Migration):
                 ('credit_terms', models.PositiveIntegerField(default=0, verbose_name='Кредитні умови (днів)')),
                 ('system_suggested_quantity', models.PositiveIntegerField(default=0, verbose_name='Система пропонує замовити')),
                 ('best_quantity', models.PositiveIntegerField(default=0, verbose_name='Оптимальна кількість для замовлення')),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.product', verbose_name='Продукт (ID)')),
-                ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.warehouse', verbose_name='Склад')),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.product', verbose_name='Продукт (ID)')),
+                ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.warehouse', verbose_name='Склад')),
                 ('report', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='replenishment.replenishmentreport', verbose_name='Звіт')),
             ],
             options={

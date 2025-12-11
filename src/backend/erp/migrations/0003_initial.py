@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('crm', '0002_remove_sale_product_delete_product_delete_sale'),
+        ('erp', '0002_remove_sale_product_delete_product_delete_sale'),
     ]
 
     operations = [
@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=128, unique=True)),
                 ('sku', models.CharField(max_length=64, unique=True)),
                 ('sale_price', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('brand', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.brand')),
+                ('brand', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.brand')),
             ],
         ),
         migrations.CreateModel(
@@ -46,8 +46,8 @@ class Migration(migrations.Migration):
                 ('doc_type', models.CharField(choices=[('PURCHASE', 'Прихід'), ('SALE', 'Продаж'), ('TRANSFER', 'Переміщення'), ('WRITE_OFF', 'Списання')], max_length=16)),
                 ('doc_date', models.DateTimeField(auto_now_add=True)),
                 ('note', models.TextField(blank=True, null=True)),
-                ('dst_warehouse', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='documents_to', to='crm.warehouse')),
-                ('src_warehouse', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='documents_from', to='crm.warehouse')),
+                ('dst_warehouse', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='documents_to', to='erp.warehouse')),
+                ('src_warehouse', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='documents_from', to='erp.warehouse')),
             ],
         ),
         migrations.CreateModel(
@@ -56,8 +56,8 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('quantity', models.DecimalField(decimal_places=2, max_digits=10)),
                 ('price', models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
-                ('document', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='crm.document')),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.product')),
+                ('document', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='erp.document')),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.product')),
             ],
             options={
                 'unique_together': {('document', 'product')},
@@ -69,7 +69,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('minimal_quantity', models.PositiveIntegerField()),
                 ('price', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.product')),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.product')),
             ],
             options={
                 'unique_together': {('product', 'minimal_quantity')},
@@ -80,8 +80,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('quantity', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.product')),
-                ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crm.warehouse')),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.product')),
+                ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.warehouse')),
             ],
             options={
                 'unique_together': {('product', 'warehouse')},

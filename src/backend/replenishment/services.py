@@ -2,7 +2,7 @@ import math
 from collections import defaultdict
 from decimal import Decimal
 
-from crm.models import Document, DocumentItem, Inventory, Product, ProductPriceLevel
+from erp.models import Document, DocumentItem, Inventory, Product, ProductPriceLevel
 from django.db import transaction
 from django.db.models import F, Sum
 from django.utils import timezone

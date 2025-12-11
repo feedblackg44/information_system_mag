@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crm', '0005_alter_product_name'),
+        ('erp', '0005_alter_product_name'),
     ]
 
     operations = [

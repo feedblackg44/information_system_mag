@@ -1,4 +1,4 @@
-from crm.admin_views.sales_analytics import sales_analytics_view
+from erp.admin_views.sales_analytics import sales_analytics_view
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path

@@ -4,7 +4,7 @@ import random
 from decimal import Decimal
 
 import numpy as np
-from crm.models import (
+from erp.models import (
     Brand,
     Document,
     DocumentItem,

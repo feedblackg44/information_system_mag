@@ -19,7 +19,7 @@
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 </style>
 
-<script>
+{% comment %} <script>
     document.addEventListener("DOMContentLoaded", function() {
         var container = document.createElement('div');
         container.id = 'global-toast-container';
@@ -61,5 +61,5 @@
             setTimeout(() => { toast.remove(); }, 7000);
         }
     });
-</script>
+</script> {% endcomment %}
 {% endblock %}

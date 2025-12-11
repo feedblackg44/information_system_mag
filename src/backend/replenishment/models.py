@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from crm.models import Product, Warehouse
+from erp.models import Product, Warehouse
 from django.conf import settings
 from django.db import models
 

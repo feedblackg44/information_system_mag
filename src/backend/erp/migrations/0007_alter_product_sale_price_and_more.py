@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crm', '0006_alter_document_doc_date'),
+        ('erp', '0006_alter_document_doc_date'),
     ]
 
     operations = [

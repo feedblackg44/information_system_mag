@@ -8,7 +8,7 @@ import django_rq
 import pandas as pd
 import redis
 from config.settings import REDIS_HOST, REDIS_PORT
-from crm.models import Document, DocumentItem
+from erp.models import Document, DocumentItem
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.db.models.functions import TruncDate

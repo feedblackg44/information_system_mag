@@ -5,4 +5,4 @@
 
 # def product_list(request):
 #     products = Product.objects.all()
-#     return render(request, "crm/list.html", {"products": products})
+#     return render(request, "erp/list.html", {"products": products})

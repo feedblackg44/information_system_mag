@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_rq',
     
-    'crm',
+    'erp',
     'generator',
     'replenishment'
 ]
@@ -86,7 +86,7 @@ DATABASES = {
         "USER": "warehouse",
         "PASSWORD": "warehouse",
         "HOST": "db",
-        "PORT": "5432",
+        "PORT": "5432"
     }
 }
 
@@ -148,7 +148,7 @@ JAZZMIN_SETTINGS = {
     "user_avatar": None,
     
     "custom_links": {
-        "crm": [
+        "erp": [
             {
                 "name": "Аналітика продажів",
                 "url": "sales_analytics",

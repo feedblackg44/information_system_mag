@@ -2,7 +2,7 @@ from decimal import Decimal
 from django import forms
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
-from crm.models import Warehouse
+from erp.models import Warehouse
 
 
 class ForecastDateRangeForm(forms.Form):
