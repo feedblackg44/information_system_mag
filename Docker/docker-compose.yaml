@@ -19,6 +19,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - redisdata:/data
 
@@ -34,7 +39,11 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    environment:
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost}
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-True}
     entrypoint: ["uv", "run", "manage.py"]
     command: ["migrate"]
 
@@ -47,7 +56,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       manage:
         condition: service_completed_successfully
     restart: always
@@ -59,6 +68,7 @@ services:
     environment:
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost}
       - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-True}
     command: uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --lifespan off
 
   worker:
@@ -70,13 +80,18 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       manage:
         condition: service_completed_successfully
     volumes:
       - ../src:/app/src
     working_dir: /app/src/backend
+    environment:
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost}
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-True}
     command: uv run manage.py rqworker default
+    restart: always
 
 volumes:
   pgdata:

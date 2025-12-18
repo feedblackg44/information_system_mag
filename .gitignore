@@ -14,3 +14,6 @@ wheels/
 
 # Secret files
 .env
+
+# Django static files
+staticfiles/
