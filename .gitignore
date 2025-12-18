@@ -11,3 +11,6 @@ wheels/
 
 # Documents
 *.xlsx
+
+# Secret files
+.env

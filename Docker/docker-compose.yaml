@@ -56,6 +56,9 @@ services:
     working_dir: /app/src/backend
     ports:
       - "8000:8000"
+    environment:
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost}
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost}
     command: uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --lifespan off
 
   worker:
