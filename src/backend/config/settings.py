@@ -165,15 +165,12 @@ JAZZMIN_SETTINGS = {
 REDIS_HOST = 'redis'
 REDIS_PORT = 6379
 
-# --- КОНФИГУРАЦИЯ DJANGO-RQ ---
 RQ_QUEUES = {
     'default': {
-        # Имя 'default' используется, так как оно указано в @django_rq.job('default', ...)
         'HOST': REDIS_HOST,
         'PORT': REDIS_PORT,
         'DB': 0, 
         'PASSWORD': None,
-        # Максимальное время выполнения задачи (в секундах). 3600с = 1 час
         'DEFAULT_TIMEOUT': 3600, 
     }
 }
